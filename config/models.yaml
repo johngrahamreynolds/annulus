@@ -1,0 +1,24 @@
+profiles:
+  local:
+    provider: ollama
+    model: qwen2.5-coder:7b-instruct-q5_K_M
+    description: Default local coding model via host Ollama
+
+  local-full-precision:
+    provider: ollama
+    model: qwen2.5-coder:7b
+    description: Full precision local coding model via host Ollama
+
+  local-fast:
+    provider: ollama
+    model: llama3.2:3b
+    description: Fast local model for routing and summarization
+
+  # Frontier profile reserved for later escalation logic
+  frontier:
+    provider: openai
+    model: gpt-4o
+    description: Frontier model (requires OPENAI_API_KEY)
+
+defaults:
+  chat: local

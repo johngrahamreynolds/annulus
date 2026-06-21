@@ -1,0 +1,10 @@
+gateway:
+  host: "0.0.0.0"
+  port: 8080
+  api_key: "dev-local-key"
+
+trace:
+  enabled: true
+
+router:
+  default_profile: local

@@ -1,0 +1,30 @@
+# Example Continue configuration snippet.
+# Merge into ~/.continue/config.yaml or .continue/config.yaml in your project.
+#
+# Requires Annulus gateway running at localhost:8080 and API key from .env
+
+name: Annulus Local
+version: 0.0.1
+schema: v1
+
+models:
+  - name: Annulus Local
+    provider: openai
+    model: local
+    apiBase: http://localhost:8080/v1
+    apiKey: dev-local-key
+    roles:
+      - chat
+      - edit
+      - apply
+
+  - name: Annulus Fast
+    provider: openai
+    model: local-fast
+    apiBase: http://localhost:8080/v1
+    apiKey: dev-local-key
+    roles:
+      - chat
+
+# When running gateway inside devcontainer, use forwarded port or host URL:
+# apiBase: http://host.docker.internal:8080/v1

@@ -1,0 +1,42 @@
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    volumes:
+      - ..:/workspace:cached
+      - uv-cache:/root/.cache/uv
+    command: sleep infinity
+    env_file:
+      - ../.env
+    environment:
+      OLLAMA_HOST: "http://host.docker.internal:11434"
+      ANNULUS_CONFIG_DIR: "/workspace/config"
+      ANNULUS_DATA_DIR: "/workspace/.annulus"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${ANNULUS_PORT:-8080}:8080"
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gateway
+    profiles: ["gateway"]
+    ports:
+      - "${ANNULUS_PORT:-8080}:8080"
+    env_file:
+      - ../.env
+    environment:
+      OLLAMA_HOST: "http://host.docker.internal:11434"
+      ANNULUS_CONFIG_DIR: "/app/config"
+      ANNULUS_DATA_DIR: "/data/.annulus"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - annulus-data:/data/.annulus
+      - ../config:/app/config:ro
+
+volumes:
+  uv-cache:
+  annulus-data:

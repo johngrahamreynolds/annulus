@@ -1,0 +1,21 @@
+[project]
+name = "annulus-trace"
+version = "0.1.0"
+description = "Annulus trace and span logging"
+requires-python = ">=3.12"
+dependencies = [
+    "annulus-core",
+]
+
+[tool.uv.sources]
+annulus-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/annulus_trace"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src/annulus_trace" = "annulus_trace"

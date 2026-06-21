@@ -1,0 +1,23 @@
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Warm dependency cache with lockfile
+COPY pyproject.toml uv.lock ./
+COPY packages/core/pyproject.toml packages/core/pyproject.toml
+COPY packages/router/pyproject.toml packages/router/pyproject.toml
+COPY packages/trace/pyproject.toml packages/trace/pyproject.toml
+COPY apps/gateway/pyproject.toml apps/gateway/pyproject.toml
+COPY apps/cli/pyproject.toml apps/cli/pyproject.toml
+
+COPY packages/ packages/
+COPY apps/ apps/
+COPY config/ config/
+
+RUN uv sync --frozen --group dev
+
+ENV PATH="/workspace/.venv/bin:$PATH"
