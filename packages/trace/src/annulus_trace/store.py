@@ -24,8 +24,6 @@ class TraceRecord:
 
 
 class TraceStore:
-    """Minimal SQLite trace store for gateway requests."""
-
     def __init__(self, db_path: Path) -> None:
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)

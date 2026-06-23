@@ -1,6 +1,6 @@
 """Annulus model router."""
 
-from annulus_router.ollama import OllamaClient
+from annulus_router.escalation import CompletionResult
 from annulus_router.router import ModelRouter
 
-__all__ = ["ModelRouter", "OllamaClient"]
+__all__ = ["CompletionResult", "ModelRouter"]

@@ -12,3 +12,4 @@ def test_health_endpoint():
     data = response.json()
     assert data["status"] == "ok"
     assert data["service"] == "annulus-gateway"
+    assert "index" in data

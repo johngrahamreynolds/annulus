@@ -1,4 +1,4 @@
-"""Annulus trace store — SQLite-backed request and span logging."""
+"""Annulus trace store."""
 
 from annulus_trace.store import TraceRecord, TraceStore
 

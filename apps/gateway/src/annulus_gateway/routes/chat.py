@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
+import time
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from annulus_gateway.deps import get_router, get_settings, get_trace_store, verify_api_key
+from annulus_gateway.deps import get_runtime, get_settings, get_trace_store, verify_api_key
 
 chat_router = APIRouter(prefix="/v1", tags=["openai"])
 
@@ -30,7 +33,7 @@ async def list_models(
 @chat_router.post("/chat/completions")
 async def chat_completions(
     request: Request,
-    model_router=Depends(get_router),
+    runtime=Depends(get_runtime),
     trace_store=Depends(get_trace_store),
     settings=Depends(get_settings),
     _auth: None = Depends(verify_api_key),
@@ -40,29 +43,15 @@ async def chat_completions(
     stream = bool(body.get("stream", False))
     requested_model = body.get("model")
 
-    profile = model_router.resolve_profile(requested_model)
-    if profile.provider != "ollama":
-        raise HTTPException(
-            status_code=501,
-            detail=f"Provider '{profile.provider}' is not implemented in MVP passthrough.",
-        )
-
     extra = {
         k: body.get(k)
         for k in ("temperature", "max_tokens", "top_p", "stop")
         if k in body
     }
-    payload = model_router.build_payload(
-        profile=profile,
-        messages=messages,
-        stream=stream,
-        extra=extra,
-    )
 
     span = trace_store.start_span(
         "chat.completions",
         attributes={
-            "model": profile.model,
             "profile": requested_model or settings.router.default_profile,
             "stream": stream,
             "message_count": len(messages),
@@ -70,9 +59,19 @@ async def chat_completions(
     )
 
     try:
-        if stream:
+        result = await runtime.run(
+            messages=messages,
+            profile_name=requested_model,
+            trace_id=span.trace_id,
+            stream=stream,
+            extra=extra,
+        )
+
+        if isinstance(result, dict) and result.get("mode") == "stream":
+            profile = result["profile"]
+            payload = result["payload"]
             return StreamingResponse(
-                _stream_ollama(model_router, payload, span, trace_store),
+                _stream(runtime, profile, payload, span, trace_store),
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
@@ -80,38 +79,52 @@ async def chat_completions(
                 },
             )
 
-        response = await model_router.ollama.chat_completions(payload)
-        if response.status_code >= 400:
-            trace_store.end_span(span.span_id, status="error", error=response.text)
-            return JSONResponse(
-                status_code=response.status_code,
-                content=response.json()
-                if response.headers.get("content-type", "").startswith("application/json")
-                else {"error": response.text},
-                headers={"X-Annulus-Trace-Id": span.trace_id},
-            )
-
-        data = response.json()
+        response_body = {
+            "id": f"chatcmpl-{uuid.uuid4().hex[:24]}",
+            "object": "chat.completion",
+            "created": int(time.time()),
+            "model": result.profile_name,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": result.message,
+                    "finish_reason": "stop",
+                }
+            ],
+            "annulus": {
+                "escalated": result.escalated,
+                "retrieval_hits": result.retrieval_hits,
+                "tool_calls": result.tool_calls,
+                "iterations": result.iterations,
+            },
+        }
         trace_store.end_span(
             span.span_id,
             status="ok",
-            attributes={"response_id": data.get("id")},
+            attributes={
+                "escalated": result.escalated,
+                "iterations": result.iterations,
+                "tools": result.tool_calls,
+            },
         )
-        return JSONResponse(content=data, headers={"X-Annulus-Trace-Id": span.trace_id})
+        return JSONResponse(
+            content=response_body,
+            headers={"X-Annulus-Trace-Id": span.trace_id},
+        )
     except HTTPException:
         trace_store.end_span(span.span_id, status="error", error="HTTPException")
         raise
     except Exception as exc:
         trace_store.end_span(span.span_id, status="error", error=str(exc))
-        raise HTTPException(status_code=502, detail=f"Upstream Ollama error: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"Agent runtime error: {exc}") from exc
 
 
-async def _stream_ollama(model_router, payload: dict[str, Any], span, trace_store):
+async def _stream(runtime, profile, payload, span, trace_store):
     try:
-        async for chunk in model_router.ollama.stream_chat_completions(payload):
+        async for chunk in runtime.router.stream(profile=profile, payload=payload):
             yield chunk
         trace_store.end_span(span.span_id, status="ok", attributes={"streamed": True})
     except Exception as exc:
         trace_store.end_span(span.span_id, status="error", error=str(exc))
-        yield f'data: {{"error": "{str(exc)}"}}\n\n'.encode()
+        yield f"data: {json.dumps({'error': str(exc)})}\n\n".encode()
         yield b"data: [DONE]\n\n"

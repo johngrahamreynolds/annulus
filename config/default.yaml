@@ -8,3 +8,40 @@ trace:
 
 router:
   default_profile: local
+  escalation_enabled: true
+
+agent:
+  max_iterations: 8
+  tools_enabled: true
+  retrieval_enabled: true
+  retrieval_top_k: 5
+
+retrieval:
+  exclude_dirs:
+    - .git
+    - .venv
+    - node_modules
+    - __pycache__
+    - .annulus
+    - dist
+    - build
+  exclude_extensions:
+    - .pyc
+    - .png
+    - .jpg
+    - .jpeg
+    - .gif
+    - .ico
+    - .woff
+    - .woff2
+    - .pdf
+    - .zip
+    - .tar
+    - .gz
+  max_chunk_chars: 2000
+  overlap_chars: 200
+
+tools:
+  sandbox_root: "."
+  allowed_commands:
+    - rg

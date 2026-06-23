@@ -22,8 +22,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Annulus Gateway",
-        description="OpenAI-compatible gateway for local-first agentic AI",
-        version="0.1.0",
+        description="OpenAI-compatible gateway with retrieval and tools",
+        version="0.2.0",
         lifespan=lifespan,
     )
     app.include_router(health_router)

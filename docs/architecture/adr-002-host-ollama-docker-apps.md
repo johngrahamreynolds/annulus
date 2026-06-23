@@ -2,31 +2,19 @@
 
 ## Context
 
-Annulus targets local-first development on Apple Silicon with Ollama using Metal acceleration. Containerizing Ollama inside Docker on macOS forfeits GPU/Neural Engine access and complicates model cache management. Application services benefit from reproducible container environments.
+Ollama should use host GPU/Metal. Annulus apps run in Docker or devcontainer with a bind-mounted workspace for v0.2 retrieval and tools.
 
 ## Decision
 
-- Run **Ollama on the host** (default `http://127.0.0.1:11434`)
-- Run **Annulus gateway and dev shell in Docker/devcontainer**
-- Inside containers, set `OLLAMA_HOST=http://host.docker.internal:11434` with `extra_hosts: host-gateway`
+Run **Ollama on the host**; run Annulus in Docker or devcontainer. Containers use `OLLAMA_HOST=http://host.docker.internal:11434`.
 
-The gateway performs **streaming passthrough** to Ollama's OpenAI-compatible `/v1/chat/completions` endpoint without transforming the stream in MVP.
-
-## Consequences
-
-**Positive**
-
-- Best inference performance on M5 Max class hardware
-- Reproducible Python environment in devcontainer
-- Same gateway image deploys to cloud later; only `OLLAMA_HOST` changes
-
-**Negative**
-
-- Host must run Ollama separately (`ollama serve`)
-- Linux cloud deployment may colocate Ollama or switch to API-only frontier routing
+- **Devcontainer**: single `dev` service; run `uv run annulus-gateway` inside it. Port 8080 forwarded to the host.
+- **Production compose** (`docker/docker-compose.yml`): standalone `gateway` service with repo mounted read-only at `/workspace` and `ANNULUS_WORKSPACE_ROOT=/workspace`.
+- **Images** install `ripgrep` so the server-side `ripgrep` tool works in containers.
 
 ## References
 
 - `docker/docker-compose.yml`
-- `.devcontainer/docker-compose.dev.yml`
-- `.env.example`
+- `docker/Dockerfile.dev`
+- `docker/Dockerfile.gateway`
+- `.devcontainer/`

@@ -1,6 +1,6 @@
 [project]
 name = "annulus"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local-first agentic AI platform — Annulus monorepo"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -14,6 +14,9 @@ members = [
     "packages/core",
     "packages/router",
     "packages/trace",
+    "packages/retrieval",
+    "packages/tools",
+    "packages/runtime",
     "apps/gateway",
     "apps/cli",
 ]
@@ -22,6 +25,9 @@ members = [
 annulus-core = { workspace = true }
 annulus-router = { workspace = true }
 annulus-trace = { workspace = true }
+annulus-retrieval = { workspace = true }
+annulus-tools = { workspace = true }
+annulus-runtime = { workspace = true }
 annulus-gateway = { workspace = true }
 annulus-cli = { workspace = true }
 
