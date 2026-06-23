@@ -1,12 +1,15 @@
 [project]
 name = "annulus-gateway"
-version = "0.1.0"
-description = "Annulus FastAPI gateway — OpenAI-compatible chat API"
+version = "0.2.0"
+description = "Annulus FastAPI gateway"
 requires-python = ">=3.12"
 dependencies = [
     "annulus-core",
     "annulus-router",
     "annulus-trace",
+    "annulus-retrieval",
+    "annulus-tools",
+    "annulus-runtime",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
 ]
@@ -15,6 +18,9 @@ dependencies = [
 annulus-core = { workspace = true }
 annulus-router = { workspace = true }
 annulus-trace = { workspace = true }
+annulus-retrieval = { workspace = true }
+annulus-tools = { workspace = true }
+annulus-runtime = { workspace = true }
 
 [project.scripts]
 annulus-gateway = "annulus_gateway.main:main"
