@@ -26,6 +26,7 @@
   "remoteEnv": {
     "OLLAMA_HOST": "http://host.docker.internal:11434",
     "ANNULUS_CONFIG_DIR": "/workspace/config",
-    "ANNULUS_DATA_DIR": "/workspace/.annulus"
+    "ANNULUS_DATA_DIR": "/workspace/.annulus",
+    "ANNULUS_WORKSPACE_ROOT": "/workspace"
   }
 }

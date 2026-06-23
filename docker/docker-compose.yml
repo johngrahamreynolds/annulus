@@ -13,14 +13,17 @@ services:
       OLLAMA_HOST: "http://host.docker.internal:11434"
       ANNULUS_CONFIG_DIR: "/app/config"
       ANNULUS_DATA_DIR: "/data/.annulus"
+      ANNULUS_INDEX_DB: "/data/.annulus/index.db"
       ANNULUS_TRACE_DB: "/data/.annulus/traces.db"
+      ANNULUS_WORKSPACE_ROOT: "/workspace"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - annulus-data:/data/.annulus
+      - ..:/workspace:ro
       - ../config:/app/config:ro
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 3
