@@ -1,11 +1,9 @@
 [project]
 name = "annulus-trace"
-version = "0.1.0"
+version = "0.2.0"
 description = "Annulus trace and span logging"
 requires-python = ">=3.12"
-dependencies = [
-    "annulus-core",
-]
+dependencies = ["annulus-core"]
 
 [tool.uv.sources]
 annulus-core = { workspace = true }
