@@ -1,88 +1,133 @@
 # Annulus
 
-Local-first, model-agnostic agentic AI platform. MVP gateway with OpenAI-compatible API, Ollama passthrough, and SQLite trace logging.
+Local-first, model-agnostic agentic AI platform. The gateway exposes an OpenAI-compatible API with **retrieval-augmented** chat, a **server-side tool loop** (`read_file`, `ripgrep`), SQLite tracing, and **frontier escalation** when local models fail.
+
+## Features (v0.2)
+
+- **Retrieval** — FTS5 index over workspace code/docs (`annulus index`)
+- **Agent loop** — server-side tool calling before responding
+- **Tracing** — SQLite spans for chat, retrieval, tools, and iterations
+- **Frontier escalation** — optional fallback to an OpenAI-compatible frontier API when local model errors or returns empty
+- **Continue-ready** — OpenAI-compatible `/v1/chat/completions`
 
 ## Repo layout
 
 ```text
 annulus/
 ├── apps/
-│   ├── cli/                 # `annulus` CLI (chat, health)
-│   └── gateway/             # FastAPI OpenAI-compatible gateway
+│   ├── cli/                 # annulus health | index | chat
+│   └── gateway/             # FastAPI gateway
 ├── packages/
-│   ├── core/                # Config, types, settings
-│   ├── router/              # Model router + Ollama client
-│   └── trace/               # SQLite trace store
+│   ├── core/                # Config and shared types
+│   ├── router/              # Ollama + OpenAI providers, escalation
+│   ├── trace/               # SQLite trace store
+│   ├── retrieval/           # Indexer + FTS retriever
+│   ├── tools/               # read_file, ripgrep
+│   └── runtime/             # Agent loop (retrieval → model → tools)
 ├── config/                  # YAML configuration
-├── docker/                  # Dockerfiles and compose
+├── docker/
 ├── docs/
-│   ├── architecture/        # ADRs
-│   └── continue-config.example.yaml
-├── .devcontainer/           # VS Code / Cursor dev container
-├── pyproject.toml           # uv workspace root
-└── .env.example
+└── .devcontainer/
 ```
 
-## Prerequisites
-
-Ollama must run on the **host** at port 11434 (`ollama serve`). Docker and dev-container workflows reach it via `host.docker.internal`; no change to `.env` is required for that — see [Ollama host URL](#ollama-host-url) below.
-
-## Quick start (host)
-
-Run directly on your machine with uv (Python 3.12+).
+## Quick start
 
 ```bash
 cp .env.example .env
-uv sync
-uv run annulus-gateway &
+uv sync --group dev
+
+# 1. Index your workspace (required for retrieval)
+uv run annulus index
+
+# 2. Start gateway
+uv run annulus-gateway
+
+# 3. Verify
 uv run annulus health
-uv run annulus chat "Hello from Annulus"
+uv run annulus chat "Where is the agent loop implemented?" --no-stream
 ```
 
-## Quick start (dev container)
+`annulus chat` **streams by default** (retrieval-augmented passthrough). Use **`--no-stream`** for the full agent loop: server-side tools and frontier escalation.
 
-Open the repo in a dev container (`.devcontainer/devcontainer.json`, used by VS Code / Cursor). The container provides a Python environment and forwards port 8080, but **does not start the gateway automatically** — start it yourself, same as on the host.
+## Request flow
 
-```bash
-cp .env.example .env   # if not already present
-uv run annulus-gateway &
-curl http://localhost:8080/health
-uv run annulus health
-uv run annulus chat "Hello from Annulus"
+```text
+Client (Continue / CLI)
+  → POST /v1/chat/completions
+  → AgentRuntime
+      1. Retriever.search(user query) → inject context
+      2. ModelRouter.complete (local Ollama)
+      3. If tool_calls → ToolExecutor (read_file / ripgrep) → loop
+      4. If local error/empty → escalate to frontier (OpenAI-compatible API)
+  → TraceStore (SQLite spans — observability only, not chat memory)
+  → Response (+ annulus metadata in non-streaming mode)
 ```
 
-Use `localhost:8080` from inside the container. Do not use `host.docker.internal:8080` for the gateway; that address targets the host loopback, not the process in the container.
+Steps 3–4 and escalation run only for **non-streaming** requests. Streaming requests get retrieval context injection, then a direct model passthrough.
 
-## Quick start (Docker — gateway only)
+## Streaming vs non-streaming
 
-Runs the production-style gateway image via `docker/docker-compose.yml`. The gateway **starts automatically** on container launch.
+| Mode | Retrieval | Tool loop | Frontier escalation |
+|------|-----------|-----------|---------------------|
+| **Streaming** (`stream: true`, CLI default) | Yes | No | No |
+| **Non-streaming** (`--no-stream`) | Yes | Yes | Yes |
+
+Continue and other clients that stream behave like the first row unless you disable streaming in the client.
+
+## Stateless gateway
+
+Annulus does **not** persist chat history on the server. Each request uses the `messages` array the client sends. SQLite traces (`.annulus/traces.db`) log spans for debugging and evals — they are **not** replayed into future prompts. Cross-turn context is the client's responsibility (e.g. Continue thread history).
+
+## Configuration
+
+| Source | Purpose |
+|--------|---------|
+| `.env` | API keys, paths, Ollama host, escalation toggle, frontier base URL |
+| `config/default.yaml` | Agent, retrieval, tools settings |
+| `config/models.yaml` | Model profiles and escalation rules |
+
+Set `OPENAI_API_KEY` to enable frontier escalation. Point `OPENAI_BASE_URL` at an OpenAI-compatible endpoint (OpenAI, LiteLLM ZDR, etc.). Without a key, `/health` reports `frontier: missing_api_key` and escalation attempts will fail.
+
+Configure the frontier model name in `config/models.yaml` under the `frontier` profile.
+
+## Continue
+
+See `docs/continue-config.example.yaml`. Point `apiBase` at `http://localhost:8080/v1`.
+
+## Docker / devcontainer
+
+Ollama runs on the **host**. Containers reach it via `host.docker.internal:11434`.
+
+**Production-style gateway** (standalone container):
 
 ```bash
-cp .env.example .env
 docker compose -f docker/docker-compose.yml up --build
-curl http://localhost:8080/health
 ```
 
-## Ollama host URL
+The gateway container bind-mounts the repo read-only at `/workspace` for indexing and tool sandbox paths. Set `ANNULUS_WORKSPACE_ROOT=/workspace` (already in compose).
 
-| Where you run | `OLLAMA_HOST` |
-|---|---|
-| Host (uv on your machine) | `http://127.0.0.1:11434` (default in `.env.example`) |
-| Dev container | Overridden to `http://host.docker.internal:11434` |
-| Docker Compose (`docker/docker-compose.yml`) | Overridden to `http://host.docker.internal:11434` |
+**Devcontainer** (`.devcontainer/`): opens a `dev` service with the repo at `/workspace`. After `uv sync --group dev`:
 
-You only need to edit `.env` if you run the gateway outside these Docker overrides (for example, a plain `docker run` without the compose `environment:` block).
+```bash
+uv run annulus index
+uv run annulus-gateway
+```
 
-## Continue setup
-
-Copy `docs/continue-config.example.yaml` into your Continue config and set the API key to match `.env`.
+Run the gateway as a process inside `dev`; port 8080 is forwarded to the host for Continue and `annulus health`. Images include `ripgrep` for the agent `ripgrep` tool.
 
 ## Development
-
-Use the [dev container](#quick-start-dev-container) for day-to-day work, or run `uv sync --group dev` on the host.
 
 ```bash
 uv sync --group dev
 uv run ruff check .
 uv run pytest
 ```
+
+## Data files
+
+| Path | Contents |
+|------|----------|
+| `.annulus/traces.db` | Request/tool/retrieval spans |
+| `.annulus/index.db` | FTS5 code/doc index |
+
+Both are gitignored and persist on the bind-mounted workspace in devcontainer.

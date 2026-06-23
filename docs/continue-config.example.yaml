@@ -1,10 +1,5 @@
-# Example Continue configuration snippet.
-# Merge into ~/.continue/config.yaml or .continue/config.yaml in your project.
-#
-# Requires Annulus gateway running at localhost:8080 and API key from .env
-
 name: Annulus Local
-version: 0.0.1
+version: 0.0.2
 schema: v1
 
 models:
@@ -18,13 +13,14 @@ models:
       - edit
       - apply
 
-  - name: Annulus Fast
+  - name: Annulus Frontier
     provider: openai
-    model: local-fast
+    model: frontier
     apiBase: http://localhost:8080/v1
     apiKey: dev-local-key
     roles:
       - chat
 
-# When running gateway inside devcontainer, use forwarded port or host URL:
-# apiBase: http://host.docker.internal:8080/v1
+# Run `annulus index` before chatting for retrieval-augmented answers.
+# Non-streaming requests (or CLI --no-stream) enable the full tool loop and frontier escalation.
+# Frontier: configure OPENAI_API_KEY and OPENAI_BASE_URL in .env (LiteLLM ZDR, OpenAI, etc.).
