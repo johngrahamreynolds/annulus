@@ -1,0 +1,12 @@
+# Merged after ../docker-compose.dev.yml (listed in eval/devcontainer.json).
+# ANNULUS_EVAL_REPO is interpolated from ../.env, written by eval/pre-up.sh from eval/.env.
+
+services:
+  dev:
+    volumes:
+      - ${ANNULUS_EVAL_REPO:?Set ANNULUS_EVAL_REPO in .devcontainer/eval/.env and rebuild}:/target:cached
+    environment:
+      ANNULUS_WORKSPACE_ROOT: /target
+      ANNULUS_DATA_DIR: /target/.annulus
+      ANNULUS_INDEX_DB: /target/.annulus/index.db
+      ANNULUS_TRACE_DB: /target/.annulus/traces.db
