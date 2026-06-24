@@ -54,7 +54,10 @@ class EscalationPolicy:
 
 def _is_empty_response(data: dict[str, Any]) -> bool:
     try:
-        content = data["choices"][0]["message"].get("content")
+        message = data["choices"][0]["message"]
+        if message.get("tool_calls"):
+            return False
+        content = message.get("content")
         return not content or not str(content).strip()
     except (KeyError, IndexError, TypeError):
         return True

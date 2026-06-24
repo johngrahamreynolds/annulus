@@ -7,6 +7,18 @@ from annulus_router.escalation import EscalationPolicy, _is_empty_response
 def test_empty_response_detection():
     assert _is_empty_response({"choices": [{"message": {"content": ""}}]})
     assert not _is_empty_response({"choices": [{"message": {"content": "hi"}}]})
+    assert not _is_empty_response(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": "",
+                        "tool_calls": [{"id": "call_1", "function": {"name": "ripgrep"}}],
+                    }
+                }
+            ]
+        }
+    )
 
 
 def test_escalation_on_error():
