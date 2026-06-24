@@ -131,3 +131,7 @@ uv run pytest
 | `.annulus/index.db` | FTS5 code/doc index |
 
 Both are gitignored and persist on the bind-mounted workspace in devcontainer.
+
+## Architecture and roadmap
+
+See [`docs/architecture/vision.md`](docs/architecture/vision.md) for the long-term platform direction and phased roadmap (v0.3 → v1.0). ADRs **006–010** cover multi-client UI, remote compute, swarms, hybrid retrieval, and GraphRAG-lite.
