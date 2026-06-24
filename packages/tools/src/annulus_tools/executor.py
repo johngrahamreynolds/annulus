@@ -40,8 +40,8 @@ class ToolExecutor:
 
     def _ripgrep(self, arguments: dict[str, Any]) -> str:
         pattern = arguments["pattern"]
-        rel_path = arguments.get("path", ".")
-        max_results = int(arguments.get("max_results", 50))
+        rel_path = self._normalize_rel_path(arguments.get("path", "."))
+        max_results = self._coerce_max_results(arguments.get("max_results"))
         target = self._resolve_path(rel_path)
         cmd = [
             "rg",
@@ -63,5 +63,25 @@ class ToolExecutor:
             )
         except FileNotFoundError:
             return json.dumps({"error": "ripgrep (rg) is not installed"})
-        output = proc.stdout.strip() or proc.stderr.strip() or "(no matches)"
+        if proc.returncode not in (0, 1):
+            output = proc.stderr.strip() or proc.stdout.strip() or f"rg exited with code {proc.returncode}"
+        else:
+            output = proc.stdout.strip() or "(no matches)"
         return json.dumps({"pattern": pattern, "path": rel_path, "output": output[:8000]})
+
+    @staticmethod
+    def _normalize_rel_path(value: Any) -> str:
+        if value is None:
+            return "."
+        text = str(value).strip()
+        return text or "."
+
+    @staticmethod
+    def _coerce_max_results(value: Any, default: int = 50) -> int:
+        if value is None:
+            return default
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return default
+        return parsed if parsed > 0 else default
