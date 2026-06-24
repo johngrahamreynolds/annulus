@@ -6,6 +6,8 @@ dist/
 build/
 .env
 .env.local
+.devcontainer/eval/.env
+.devcontainer/.env
 .annulus/
 .idea/
 .vscode/

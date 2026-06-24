@@ -1,6 +1,9 @@
 {
-  "name": "Annulus",
-  "dockerComposeFile": "docker-compose.dev.yml",
+  "name": "Annulus — External Repo Eval",
+  "dockerComposeFile": [
+    "../docker-compose.dev.yml",
+    "docker-compose.eval.yml"
+  ],
   "service": "dev",
   "workspaceFolder": "/workspace",
   "forwardPorts": [8080],
@@ -11,6 +14,7 @@
     }
   },
   "postCreateCommand": "uv sync --group dev",
+  "initializeCommand": "bash .devcontainer/eval/pre-up.sh",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -22,11 +26,5 @@
         "python.defaultInterpreterPath": "/workspace/.venv/bin/python"
       }
     }
-  },
-  "remoteEnv": {
-    "OLLAMA_HOST": "http://host.docker.internal:11434",
-    "ANNULUS_CONFIG_DIR": "/workspace/config",
-    "ANNULUS_DATA_DIR": "/workspace/.annulus",
-    "ANNULUS_WORKSPACE_ROOT": "/workspace"
   }
 }
