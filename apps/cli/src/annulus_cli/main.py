@@ -126,6 +126,7 @@ def chat(
             if meta:
                 meta_line = (
                     f"[profile={data.get('model')} escalated={meta.get('escalated')} "
+                    f"iterations={meta.get('iterations')} "
                     f"tools={meta.get('tool_calls')} "
                     f"hits={len(meta.get('retrieval_hits', []))}]"
                 )
