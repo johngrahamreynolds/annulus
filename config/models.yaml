@@ -1,9 +1,15 @@
 profiles:
   local:
     provider: ollama
-    model: qwen2.5-coder:7b-instruct-q5_K_M
-    description: Default local coding model via host Ollama
+    model: llama3.1:8b
+    description: Default local model (reliable Ollama tool calling)
     supports_tools: true
+
+  local-coder:
+    provider: ollama
+    model: qwen2.5-coder:7b-instruct-q5_K_M
+    description: Qwen coder — good for chat, emits tool JSON in content not tool_calls
+    supports_tools: false
 
   local-fast:
     provider: ollama
