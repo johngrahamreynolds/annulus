@@ -43,7 +43,7 @@ An **agentic engineering and research platform**: grounded in the user's repos, 
 | Phase | Focus | Primary client |
 |-------|--------|----------------|
 | **v0.2** ✅ | FTS5 retrieval, tool loop, tracing, frontier escalation, eval devcontainer | Continue / CLI |
-| **v0.3** | Streaming tool loop, index watch, git tools, trace/eval CLI, router polish | Continue / CLI |
+| **v0.3** | Streaming tool loop; **model tool compatibility**; **git-aware index watch**; git/edit tools (TBD); trace/eval CLI; router polish; contributor eval path documented | Continue / CLI |
 | **v0.4** | Hybrid retrieval (FTS + embeddings), smarter chunking, optional rerank | Continue / CLI |
 | **v0.5** | GraphRAG-lite (symbols, edges, multi-hop expand) | CLI + trace inspection |
 | **v0.6** | MCP tools, remote compute profiles (lab GPU / vLLM) | Clients unchanged |
@@ -64,6 +64,10 @@ An **agentic engineering and research platform**: grounded in the user's repos, 
 | [008](adr-008-agent-swarm-orchestration.md) | Swarm orchestration |
 | [009](adr-009-hybrid-retrieval-embeddings.md) | Hybrid FTS + embeddings |
 | [010](adr-010-graphrag-lite.md) | GraphRAG-lite |
+| [011](adr-011-governed-self-improvement.md) | Governed self-improvement (open-ended) |
+| [012](adr-012-target-native-sidecar-deployment.md) | Target-native sidecar / end-user deployment |
+| [013](adr-013-model-tool-compatibility.md) | Model tool compatibility matrix |
+| [014](adr-014-incremental-index-watch.md) | Git-aware incremental index watch |
 
 ## Eval signals → next work
 
@@ -74,3 +78,9 @@ An **agentic engineering and research platform**: grounded in the user's repos, 
 | Model too small or slow | v0.6 remote `lab-gpu` profile |
 | Multi-step research workflows | v0.7 swarm orchestrator |
 | Hard to inspect hits and tool spans while working | v1 Annulus UI |
+| Tool returns too few matches (rg / top_k / model summarization) | Tool defaults, retrieval `top_k`, response prompting; see work-eval notes |
+| Search-only feels like Ctrl+F; need edit/write/diff for SWE MVP | Edit/apply tools, git diff tool (v0.3+) |
+| Engine in Annulus window vs code in target window | Target-native sidecar / index watch (v0.3 deployment) |
+| Model cites "supplied context" awkwardly | System prompt / injection format tuning |
+| Model emits tool JSON in content, not `tool_calls` | [ADR-013](adr-013-model-tool-compatibility.md) — probe, profile flags, optional fallback |
+| Full reindex too slow on large repos | [ADR-014](adr-014-incremental-index-watch.md) — git-aware incremental watch |
