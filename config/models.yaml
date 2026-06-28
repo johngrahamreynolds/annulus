@@ -1,20 +1,28 @@
 profiles:
   local:
+  # override default local model with gemma4:12b
     provider: ollama
-    model: llama3.1:8b
-    description: Default local model (reliable Ollama tool calling)
+    model: gemma4:12b
+    description: Gemma4 12B; well-suited for reasoning, agentic workflows, coding, and multimodal understanding
     supports_tools: true
+
+  local-large:
+    provider: ollama
+    model: gemma4:26b
+    description: Gemma4 26B; larger variant of gemma4:12b using a MoE architecture
+    supports_tools: true
+
+  gpt-oss:
+    provider: ollama
+    model: gpt-oss:20b
+    description: Reasoning model; experimental / opt-in for legacy comparison with Gemma
+    supports_tools: true
+    # future: parallel_tool_calls: false
 
   local-coder:
     provider: ollama
     model: qwen2.5-coder:7b-instruct-q5_K_M
     description: Qwen coder — good for chat, emits tool JSON in content not tool_calls
-    supports_tools: false
-
-  local-fast:
-    provider: ollama
-    model: llama3.2:3b
-    description: Fast local model for routing and summarization
     supports_tools: false
 
   frontier:

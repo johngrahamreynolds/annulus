@@ -13,6 +13,22 @@ models:
       - edit
       - apply
 
+  - name: Annulus Local Large
+    provider: openai
+    model: local-large
+    apiBase: http://localhost:8080/v1
+    apiKey: dev-local-key
+    roles:
+      - chat
+
+  - name: Annulus GPT-OSS
+    provider: openai
+    model: gpt-oss
+    apiBase: http://localhost:8080/v1
+    apiKey: dev-local-key
+    roles:
+      - chat
+
   - name: Annulus Frontier
     provider: openai
     model: frontier
@@ -22,6 +38,7 @@ models:
       - chat
 
 # Run `annulus index` before chatting for retrieval-augmented answers.
-# Streaming requests use the full tool loop when the model profile has supports_tools: true.
+# Profile names (local, local-large, gpt-oss, frontier) map to config/models.yaml.
+# Streaming requests use the full tool loop when the profile has supports_tools: true.
 # Use CLI --no-stream to print annulus metadata (iterations, tool_calls, escalation) inline.
 # Frontier: configure OPENAI_API_KEY and OPENAI_BASE_URL in .env (LiteLLM ZDR, OpenAI, etc.).

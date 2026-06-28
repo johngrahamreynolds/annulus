@@ -84,7 +84,7 @@ Annulus does **not** persist chat history on the server. Each request uses the `
 |--------|---------|
 | `.env` | API keys, paths, Ollama host, escalation toggle, frontier base URL |
 | `config/default.yaml` | Agent, retrieval, tools settings |
-| `config/models.yaml` | Model profiles and escalation rules |
+| `config/models.yaml` | Model profiles (`local` = gemma4:12b, `local-large` = gemma4:26b) and escalation rules |
 
 Set `OPENAI_API_KEY` to enable frontier escalation. Point `OPENAI_BASE_URL` at an OpenAI-compatible endpoint (OpenAI, LiteLLM ZDR, etc.). Without a key, `/health` reports `frontier: missing_api_key` and escalation attempts will fail.
 
