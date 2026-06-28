@@ -59,25 +59,30 @@ async def chat_completions(
     )
 
     try:
-        result = await runtime.run(
-            messages=messages,
-            profile_name=requested_model,
-            trace_id=span.trace_id,
-            stream=stream,
-            extra=extra,
-        )
-
-        if isinstance(result, dict) and result.get("mode") == "stream":
-            profile = result["profile"]
-            payload = result["payload"]
+        if stream:
             return StreamingResponse(
-                _stream(runtime, profile, payload, span, trace_store),
+                _stream_chat(
+                    runtime=runtime,
+                    messages=messages,
+                    profile_name=requested_model,
+                    trace_id=span.trace_id,
+                    extra=extra,
+                    span=span,
+                    trace_store=trace_store,
+                ),
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
                     "X-Annulus-Trace-Id": span.trace_id,
                 },
             )
+
+        result = await runtime.run(
+            messages=messages,
+            profile_name=requested_model,
+            trace_id=span.trace_id,
+            extra=extra,
+        )
 
         response_body = {
             "id": f"chatcmpl-{uuid.uuid4().hex[:24]}",
@@ -119,9 +124,23 @@ async def chat_completions(
         raise HTTPException(status_code=502, detail=f"Agent runtime error: {exc}") from exc
 
 
-async def _stream(runtime, profile, payload, span, trace_store):
+async def _stream_chat(
+    *,
+    runtime,
+    messages,
+    profile_name,
+    trace_id,
+    extra,
+    span,
+    trace_store,
+):
     try:
-        async for chunk in runtime.router.stream(profile=profile, payload=payload):
+        async for chunk in runtime.stream_run(
+            messages=messages,
+            profile_name=profile_name,
+            trace_id=trace_id,
+            extra=extra,
+        ):
             yield chunk
         trace_store.end_span(span.span_id, status="ok", attributes={"streamed": True})
     except Exception as exc:

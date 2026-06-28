@@ -1,4 +1,19 @@
-from annulus_runtime.agent import _prepend_system_context
+from __future__ import annotations
+
+import json
+from typing import Any
+from unittest.mock import MagicMock
+
+import pytest
+
+from annulus_core.config import AnnulusSettings, ModelProfile
+from annulus_runtime.agent import AgentRuntime, _prepend_system_context
+from annulus_runtime.streaming import (
+    assemble_stream_message,
+    assistant_visible_text,
+    stream_completion_content,
+    to_cli_stream_chunk,
+)
 
 
 def test_prepend_system_context_returns_flat_message_list():
@@ -9,3 +24,253 @@ def test_prepend_system_context_returns_flat_message_list():
         {"role": "user", "content": "Hello"},
     ]
     assert not any(isinstance(m, list) for m in updated)
+
+
+def test_assistant_visible_text_prefers_content():
+    assert assistant_visible_text({"content": "answer", "reasoning": "think"}) == "answer"
+
+
+def test_assistant_visible_text_falls_back_to_reasoning():
+    assert assistant_visible_text({"content": "", "reasoning": "think"}) == "think"
+
+
+def test_to_cli_stream_chunk_maps_reasoning_to_content():
+    event = {
+        "choices": [{"delta": {"reasoning": "Once upon a time"}, "finish_reason": None}],
+    }
+    raw = to_cli_stream_chunk(event)
+    assert raw is not None
+    payload = json.loads(raw.decode().split("data: ", 1)[1].strip())
+    assert payload["choices"][0]["delta"]["content"] == "Once upon a time"
+
+
+def test_assemble_stream_message_merges_tool_calls():
+    events = [
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "call_1",
+                                "function": {"name": "ripgrep", "arguments": '{"pat'},
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {"index": 0, "function": {"arguments": 'tern": "TODO"}'}}
+                        ]
+                    }
+                }
+            ]
+        },
+    ]
+    message = assemble_stream_message(events)
+    assert message["tool_calls"][0]["function"]["name"] == "ripgrep"
+    assert json.loads(message["tool_calls"][0]["function"]["arguments"]) == {"pattern": "TODO"}
+
+
+@pytest.mark.asyncio
+async def test_stream_completion_content_emits_openai_sse():
+    chunks = [
+        chunk.decode()
+        async for chunk in stream_completion_content("Hello", model="local", chunk_chars=0)
+    ]
+    assert chunks[-1].strip() == "data: [DONE]"
+    payload_lines = [line for line in chunks if line.startswith("data: ") and "[DONE]" not in line]
+    assert len(payload_lines) == 2
+    first = json.loads(payload_lines[0][6:])
+    assert first["choices"][0]["delta"]["content"] == "Hello"
+    last = json.loads(payload_lines[1][6:])
+    assert last["choices"][0]["finish_reason"] == "stop"
+
+
+def _settings(*, tools_enabled: bool = True) -> AnnulusSettings:
+    settings = AnnulusSettings()
+    settings.agent.tools_enabled = tools_enabled
+    settings.agent.retrieval_enabled = False
+    settings.models.profiles["local"] = ModelProfile(
+        provider="ollama",
+        model="llama3.1:8b",
+        supports_tools=True,
+    )
+    settings.router.default_profile = "local"
+    return settings
+
+
+def _sse(*events: dict[str, Any], done: bool = True) -> list[bytes]:
+    chunks = [f"data: {json.dumps(event)}\n\n".encode() for event in events]
+    if done:
+        chunks.append(b"data: [DONE]\n\n")
+    return chunks
+
+
+@pytest.mark.asyncio
+async def test_stream_run_forwards_live_content_without_tools():
+    settings = _settings()
+    router = MagicMock()
+    router.resolve_profile.return_value = (
+        "local",
+        settings.models.profiles["local"],
+    )
+    router.build_payload.side_effect = lambda **kwargs: kwargs
+
+    async def fake_stream(*args, **kwargs):
+        for chunk in _sse(
+            {"choices": [{"delta": {"role": "assistant", "content": "Once "}, "finish_reason": None}]},
+            {"choices": [{"delta": {"content": "upon a time"}, "finish_reason": None}]},
+            {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+        ):
+            yield chunk
+
+    router.stream = fake_stream
+
+    runtime = AgentRuntime(
+        settings=settings,
+        router=router,
+        retriever=MagicMock(),
+        tools=MagicMock(),
+        trace_store=MagicMock(),
+    )
+
+    raw = [chunk.decode() async for chunk in runtime.stream_run(messages=[{"role": "user", "content": "Story"}])]
+    combined = "".join(raw)
+    assert "Once " in combined
+    assert "upon a time" in combined
+    assert "[DONE]" in combined
+
+
+@pytest.mark.asyncio
+async def test_stream_run_executes_tools_and_streams_answer():
+    settings = _settings()
+    router = MagicMock()
+    router.resolve_profile.return_value = (
+        "local",
+        settings.models.profiles["local"],
+    )
+    router.build_payload.side_effect = lambda **kwargs: kwargs
+
+    tool_stream = _sse(
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "call_1",
+                                "function": {
+                                    "name": "ripgrep",
+                                    "arguments": '{"pattern": "TODO"}',
+                                },
+                            }
+                        ]
+                    },
+                    "finish_reason": None,
+                }
+            ]
+        },
+    )
+    answer_stream = _sse(
+        {"choices": [{"delta": {"content": "Found "}, "finish_reason": None}]},
+        {"choices": [{"delta": {"content": "nothing."}, "finish_reason": None}]},
+        {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+    )
+    streams = [tool_stream, answer_stream]
+
+    async def fake_stream(*args, **kwargs):
+        for chunk in streams.pop(0):
+            yield chunk
+
+    router.stream = fake_stream
+
+    tools = MagicMock()
+    tools.execute.return_value = "(no matches)"
+
+    runtime = AgentRuntime(
+        settings=settings,
+        router=router,
+        retriever=MagicMock(),
+        tools=tools,
+        trace_store=MagicMock(),
+    )
+
+    raw = [chunk.decode() async for chunk in runtime.stream_run(messages=[{"role": "user", "content": "Find TODOs"}])]
+    combined = "".join(raw)
+    assert "Found " in combined
+    assert "nothing." in combined
+    assert '"status": "tool"' in combined
+    tools.execute.assert_called_once_with("ripgrep", {"pattern": "TODO"})
+
+
+@pytest.mark.asyncio
+async def test_stream_run_passthrough_when_tools_disabled():
+    settings = _settings()
+    profile = ModelProfile(provider="ollama", model="llama3.2:3b", supports_tools=False)
+    settings.models.profiles["local-fast"] = profile
+
+    router = MagicMock()
+    router.resolve_profile.return_value = ("local-fast", profile)
+    router.build_payload.return_value = {"model": "llama3.2:3b", "stream": True}
+
+    async def fake_stream(*args, **kwargs):
+        yield b"data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n"
+        yield b"data: [DONE]\n\n"
+
+    router.stream = fake_stream
+
+    runtime = AgentRuntime(
+        settings=settings,
+        router=router,
+        retriever=MagicMock(),
+        tools=MagicMock(),
+        trace_store=MagicMock(),
+    )
+
+    raw = [
+        chunk
+        async for chunk in runtime.stream_run(
+            messages=[{"role": "user", "content": "Hi"}],
+            profile_name="local-fast",
+        )
+    ]
+    assert b"Hi" in b"".join(raw)
+
+
+@pytest.mark.asyncio
+async def test_stream_run_maps_reasoning_deltas_live():
+    settings = _settings()
+    router = MagicMock()
+    router.resolve_profile.return_value = (
+        "local",
+        settings.models.profiles["local"],
+    )
+    router.build_payload.side_effect = lambda **kwargs: kwargs
+
+    async def fake_stream(*args, **kwargs):
+        for chunk in _sse(
+            {"choices": [{"delta": {"reasoning": "Backend classes"}, "finish_reason": None}]},
+            {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+        ):
+            yield chunk
+
+    router.stream = fake_stream
+
+    runtime = AgentRuntime(
+        settings=settings,
+        router=router,
+        retriever=MagicMock(),
+        tools=MagicMock(),
+        trace_store=MagicMock(),
+    )
+
+    raw = [chunk.decode() async for chunk in runtime.stream_run(messages=[{"role": "user", "content": "Hi"}])]
+    assert any("Backend classes" in line for line in raw)
