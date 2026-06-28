@@ -75,7 +75,7 @@ Introduce a **model tool compatibility** layer (v0.3), separate from the `suppor
 
 ## Open questions
 
-- **Conflicting tool instructions:** Models sometimes quote text like *“THE USER HAS NOT PROVIDED ANY TOOLS…”* on Gemma4 26B and gpt-oss — likely Continue/system prompt vs API `tools` mismatch; track as a separate issue.
+- **Conflicting tool instructions:** Continue injects *“THE USER HAS NOT PROVIDED ANY TOOLS…”* when built-in tools are disabled in Tool Policies, while Annulus attaches `tools` on the API request. **Mitigation (v0.3):** `agent.tool_system_prompt` in `config/default.yaml` — appended to the client system message as `<annulus_tools>…</annulus_tools>`. See `docs/continue-config.example.yaml`.
 - **Reasoning presentation:** Continue Thought UI vs Annulus `reasoning` → `content` remap — track separately.
 - Ollama-specific fields (`tool_name` on tool role messages, missing `id`) — normalize in router or runtime?
 - When to escalate on tool-format failure vs retry with stripped tools?
