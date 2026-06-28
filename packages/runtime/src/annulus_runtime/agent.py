@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from annulus_core.config import AnnulusSettings
+from annulus_core.config import AnnulusSettings, ModelProfile
 from annulus_retrieval.retriever import Retriever
 from annulus_router.router import ModelRouter
+from annulus_runtime.streaming import (
+    assemble_stream_message,
+    assistant_visible_text,
+    event_has_tool_call_delta,
+    iter_sse_events,
+    stream_completion_content,
+    stream_status_event,
+    to_cli_stream_chunk,
+)
 from annulus_tools.executor import ToolExecutor
 from annulus_tools.registry import tool_schemas
 from annulus_trace.store import TraceStore
@@ -15,6 +25,15 @@ from annulus_trace.store import TraceStore
 @dataclass
 class AgentRunResult:
     message: dict[str, Any]
+    profile_name: str
+    escalated: bool = False
+    retrieval_hits: list[str] = field(default_factory=list)
+    tool_calls: list[str] = field(default_factory=list)
+    iterations: int = 0
+
+
+@dataclass
+class StreamRunSummary:
     profile_name: str
     escalated: bool = False
     retrieval_hits: list[str] = field(default_factory=list)
@@ -46,11 +65,162 @@ class AgentRuntime:
         stream: bool = False,
         extra: dict[str, Any] | None = None,
     ) -> AgentRunResult | dict[str, Any]:
-        requested = profile_name
-        profile_key, profile = self.router.resolve_profile(requested)
+        if stream:
+            raise ValueError("Use stream_run() for streaming requests")
+
+        profile_key, profile = self.router.resolve_profile(profile_name)
+        working, retrieval_hits = self._prepare_messages(messages, trace_id=trace_id)
+        tools_enabled = self.settings.agent.tools_enabled and profile.supports_tools
+
+        return await self._run_tool_loop(
+            working=working,
+            profile_key=profile_key,
+            profile=profile,
+            trace_id=trace_id,
+            extra=extra,
+            retrieval_hits=retrieval_hits,
+            tools_enabled=tools_enabled,
+        )
+
+    async def stream_run(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        profile_name: str | None = None,
+        trace_id: str | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> AsyncIterator[bytes]:
+        profile_key, profile = self.router.resolve_profile(profile_name)
+        working, retrieval_hits = self._prepare_messages(messages, trace_id=trace_id)
+        tools_enabled = self.settings.agent.tools_enabled and profile.supports_tools
+        summary = StreamRunSummary(profile_name=profile_key, retrieval_hits=retrieval_hits)
+
+        if not tools_enabled:
+            payload = self.router.build_payload(
+                profile=profile,
+                messages=working,
+                stream=True,
+                extra=extra,
+            )
+            async for chunk in self.router.stream(profile=profile, payload=payload):
+                yield chunk
+            summary.iterations = 1
+            return
+
+        yield stream_status_event(model=profile_key, status="agent_start")
+
+        for iteration in range(self.settings.agent.max_iterations):
+            yield stream_status_event(
+                model=profile_key,
+                status="iteration",
+                detail=str(iteration + 1),
+            )
+
+            payload_extra = dict(extra or {})
+            payload_extra["tools"] = tool_schemas()
+            payload_extra["tool_choice"] = "auto"
+
+            payload = self.router.build_payload(
+                profile=profile,
+                messages=working,
+                stream=True,
+                extra=payload_extra,
+            )
+
+            iter_span = self.trace_store.start_span(
+                "agent.iteration",
+                trace_id=trace_id,
+                attributes={"iteration": iteration, "profile": profile_key},
+            )
+
+            events: list[dict[str, Any]] = []
+            sse_buffer = ""
+            saw_tool_delta = False
+            forwarded_to_client = False
+            saw_done = False
+
+            try:
+                async for raw in self.router.stream(profile=profile, payload=payload):
+                    parsed, sse_buffer = iter_sse_events(raw, sse_buffer)
+                    for event in parsed:
+                        events.append(event)
+                        if event.get("__done__"):
+                            saw_done = True
+                            if not saw_tool_delta:
+                                cli_chunk = to_cli_stream_chunk(event)
+                                if cli_chunk:
+                                    forwarded_to_client = True
+                                    yield cli_chunk
+                            continue
+                        if event_has_tool_call_delta(event):
+                            saw_tool_delta = True
+                            continue
+                        if saw_tool_delta:
+                            continue
+                        cli_chunk = to_cli_stream_chunk(event)
+                        if cli_chunk:
+                            forwarded_to_client = True
+                            yield cli_chunk
+            except Exception as exc:
+                self.trace_store.end_span(iter_span.span_id, status="error", error=str(exc))
+                raise
+            self.trace_store.end_span(iter_span.span_id, attributes={"streamed": True})
+
+            message = assemble_stream_message(events)
+            working.append(message)
+
+            tool_calls = message.get("tool_calls") or []
+            if not tool_calls:
+                summary.iterations = iteration + 1
+                if not forwarded_to_client:
+                    text = assistant_visible_text(message)
+                    async for chunk in stream_completion_content(text, model=profile_key):
+                        yield chunk
+                elif not saw_done:
+                    yield b"data: [DONE]\n\n"
+                return
+
+            for call in tool_calls:
+                fn = call.get("function", {})
+                name = fn.get("name", "")
+                raw_args = fn.get("arguments") or "{}"
+                try:
+                    args = json.loads(raw_args)
+                except json.JSONDecodeError:
+                    args = {}
+                yield stream_status_event(model=profile_key, status="tool", detail=name)
+                tool_span = self.trace_store.start_span(
+                    f"tool.{name}",
+                    trace_id=trace_id,
+                    attributes={"args": args},
+                )
+                output = self.tools.execute(name, args)
+                summary.tool_calls.append(name)
+                self.trace_store.end_span(tool_span.span_id, attributes={"tool": name})
+                working.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call.get("id"),
+                        "name": name,
+                        "content": output,
+                    }
+                )
+
+        summary.iterations = self.settings.agent.max_iterations
+        final = working[-1]
+        message = final if isinstance(final, dict) else {"role": "assistant", "content": str(final)}
+        text = assistant_visible_text(message)
+        async for chunk in stream_completion_content(text, model=profile_key):
+            yield chunk
+
+    def _prepare_messages(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        trace_id: str | None,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
         working = [dict(m) for m in messages]
         retrieval_hits: list[str] = []
-        tool_names: list[str] = []
 
         if self.settings.agent.retrieval_enabled:
             query = _last_user_message(working)
@@ -72,22 +242,22 @@ class AgentRuntime:
                         f"{c.path}:{c.start_line}-{c.end_line}" for c in chunks
                     ]
 
-        if stream:
-            payload = self.router.build_payload(
-                profile=profile,
-                messages=working,
-                stream=True,
-                extra=extra,
-            )
-            return {
-                "mode": "stream",
-                "profile_key": profile_key,
-                "profile": profile,
-                "payload": payload,
-            }
+        return working, retrieval_hits
 
-        tools_enabled = self.settings.agent.tools_enabled and profile.supports_tools
+    async def _run_tool_loop(
+        self,
+        *,
+        working: list[dict[str, Any]],
+        profile_key: str,
+        profile: ModelProfile,
+        trace_id: str | None,
+        extra: dict[str, Any] | None,
+        retrieval_hits: list[str],
+        tools_enabled: bool,
+    ) -> AgentRunResult:
         max_iters = self.settings.agent.max_iterations
+        tool_names: list[str] = []
+        escalated = False
 
         for iteration in range(max_iters):
             payload_extra = dict(extra or {})
@@ -121,6 +291,8 @@ class AgentRuntime:
                 attributes={"escalated": result.escalated},
             )
 
+            if result.escalated:
+                escalated = True
             profile_key = result.profile_name
             profile = result.profile
             message = result.data["choices"][0]["message"]
@@ -131,7 +303,7 @@ class AgentRuntime:
                 return AgentRunResult(
                     message=message,
                     profile_name=profile_key,
-                    escalated=result.escalated,
+                    escalated=escalated,
                     retrieval_hits=retrieval_hits,
                     tool_calls=tool_names,
                     iterations=iteration + 1,
@@ -171,7 +343,7 @@ class AgentRuntime:
         return AgentRunResult(
             message=message,
             profile_name=profile_key,
-            escalated=False,
+            escalated=escalated,
             retrieval_hits=retrieval_hits,
             tool_calls=tool_names,
             iterations=max_iters,

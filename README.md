@@ -47,7 +47,7 @@ uv run annulus health
 uv run annulus chat "Where is the agent loop implemented?" --no-stream
 ```
 
-`annulus chat` **streams by default** (retrieval-augmented passthrough). Use **`--no-stream`** for the full agent loop: server-side tools and frontier escalation.
+`annulus chat` **streams by default** (retrieval + server-side tools when the profile supports them). Use **`--no-stream`** to print the full response and `annulus` metadata (`iterations`, `tool_calls`, escalation) in one block.
 
 ## Request flow
 
@@ -63,16 +63,16 @@ Client (Continue / CLI)
   → Response (+ annulus metadata in non-streaming mode)
 ```
 
-Steps 3–4 and escalation run only for **non-streaming** requests. Streaming requests get retrieval context injection, then a direct model passthrough.
+Steps 3–4 run for any request whose model profile has `supports_tools: true`. Each model turn streams from Ollama; content/reasoning deltas forward live on the final turn. Turns that emit `tool_calls` run server-side without forwarding those deltas. Profiles with `supports_tools: false` stream via direct model passthrough (retrieval only).
 
 ## Streaming vs non-streaming
 
-| Mode | Retrieval | Tool loop | Frontier escalation |
-|------|-----------|-----------|---------------------|
-| **Streaming** (`stream: true`, CLI default) | Yes | No | No |
-| **Non-streaming** (`--no-stream`) | Yes | Yes | Yes |
+| Mode | Retrieval | Tool loop | Frontier escalation | `annulus` metadata in body |
+|------|-----------|-----------|---------------------|----------------------------|
+| **Streaming** (`stream: true`, CLI default) | Yes | Yes (tool-capable profiles) | Yes | No |
+| **Non-streaming** (`--no-stream`) | Yes | Yes | Yes | Yes |
 
-Continue and other clients that stream behave like the first row unless you disable streaming in the client.
+Continue and other streaming clients get the full tool loop when the selected profile supports tools.
 
 ## Stateless gateway
 

@@ -14,7 +14,7 @@ Add three packages and route all chat through `AgentRuntime`:
 
 Retrieval runs **before** the first model call. Tools run **server-side** inside the gateway (clients do not need MCP for MVP).
 
-Non-streaming responses include an `annulus` metadata block (escalation, retrieval hits, tools used). Streaming mode skips the tool loop for now and uses retrieval-only context injection before passthrough.
+Non-streaming responses include an `annulus` metadata block (escalation, retrieval hits, tools used). Streaming requests run the same tool loop when the profile has `supports_tools: true`; each turn uses Ollama streaming, forwarding content/reasoning deltas live on the final turn only. Profiles without tool support still use retrieval-only passthrough streaming.
 
 ## Consequences
 
@@ -26,7 +26,7 @@ Non-streaming responses include an `annulus` metadata block (escalation, retriev
 
 **Negative**
 
-- Streaming requests do not yet run the full tool loop
+- Tool-call turns buffer internally (no live forward once `tool_calls` deltas appear); reasoning is mapped to `content` for CLI compatibility — native `reasoning_content` for Continue is a follow-up
 - FTS5 is lexical only (no embeddings yet)
 - Index must be rebuilt manually (`annulus index`)
 

@@ -22,5 +22,6 @@ models:
       - chat
 
 # Run `annulus index` before chatting for retrieval-augmented answers.
-# Non-streaming requests (or CLI --no-stream) enable the full tool loop and frontier escalation.
+# Streaming requests use the full tool loop when the model profile has supports_tools: true.
+# Use CLI --no-stream to print annulus metadata (iterations, tool_calls, escalation) inline.
 # Frontier: configure OPENAI_API_KEY and OPENAI_BASE_URL in .env (LiteLLM ZDR, OpenAI, etc.).
