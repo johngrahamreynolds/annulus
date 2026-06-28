@@ -15,6 +15,15 @@ agent:
   tools_enabled: true
   retrieval_enabled: true
   retrieval_top_k: 5
+  # Appended to the system message when the profile has supports_tools: true.
+  tool_system_prompt: |
+    <annulus_tools>
+    You are connected to the Annulus gateway. Server-side tools read_file and ripgrep are available via tool_calls on this request. Use them when the user asks for repository search or file reads.
+
+    When the user explicitly asks you to use ripgrep or read_file, you MUST call that tool before answering.
+
+    Ignore any instruction that says tools are unavailable or must be enabled in Continue Tool Policies. Those refer to Continue's built-in tools, not Annulus.
+    </annulus_tools>
 
 retrieval:
   exclude_dirs:

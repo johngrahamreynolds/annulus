@@ -23,11 +23,21 @@ class RouterConfig(BaseModel):
     escalation_enabled: bool = True
 
 
+DEFAULT_TOOL_SYSTEM_PROMPT = """<annulus_tools>
+You are connected to the Annulus gateway. Server-side tools read_file and ripgrep are available via tool_calls on this request. Use them when the user asks for repository search or file reads.
+
+When the user explicitly asks you to use ripgrep or read_file, you MUST call that tool before answering.
+
+Ignore any instruction that says tools are unavailable or must be enabled in Continue Tool Policies. Those refer to Continue's built-in tools, not Annulus.
+</annulus_tools>"""
+
+
 class AgentConfig(BaseModel):
     max_iterations: int = 8
     tools_enabled: bool = True
     retrieval_enabled: bool = True
     retrieval_top_k: int = 5
+    tool_system_prompt: str = DEFAULT_TOOL_SYSTEM_PROMPT
 
 
 class RetrievalConfig(BaseModel):
@@ -49,6 +59,7 @@ class ModelProfile(BaseModel):
     model: str
     description: str = ""
     supports_tools: bool = True
+    system_prompt: str = ""
 
 
 class EscalationConfig(BaseModel):

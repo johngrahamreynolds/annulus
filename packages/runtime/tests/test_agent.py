@@ -274,3 +274,73 @@ async def test_stream_run_maps_reasoning_deltas_live():
 
     raw = [chunk.decode() async for chunk in runtime.stream_run(messages=[{"role": "user", "content": "Hi"}])]
     assert any("Backend classes" in line for line in raw)
+
+
+def _runtime(settings: AnnulusSettings, *, retrieval_enabled: bool = False) -> AgentRuntime:
+    settings.agent.retrieval_enabled = retrieval_enabled
+    return AgentRuntime(
+        settings=settings,
+        router=MagicMock(),
+        retriever=MagicMock(),
+        tools=MagicMock(),
+        trace_store=MagicMock(),
+    )
+
+
+def test_prepare_messages_appends_tool_prompt_after_client_system():
+    settings = AnnulusSettings()
+    settings.agent.tool_system_prompt = "<annulus_tools>use tools</annulus_tools>"
+    runtime = _runtime(settings)
+    profile = ModelProfile(provider="ollama", model="gemma4:12b", supports_tools=True)
+
+    working, _ = runtime._prepare_messages(
+        [
+            {"role": "system", "content": "<important_rules>agent mode</important_rules>"},
+            {"role": "user", "content": "Use ripgrep"},
+        ],
+        trace_id=None,
+        profile=profile,
+        tools_enabled=True,
+    )
+
+    system = working[0]["content"]
+    assert system.index("<important_rules>") < system.index("<annulus_tools>")
+    assert "use tools" in system
+
+
+def test_prepare_messages_skips_tool_prompt_when_tools_disabled():
+    settings = AnnulusSettings()
+    settings.agent.tool_system_prompt = "<annulus_tools>use tools</annulus_tools>"
+    runtime = _runtime(settings)
+    profile = ModelProfile(provider="ollama", model="qwen", supports_tools=False)
+
+    working, _ = runtime._prepare_messages(
+        [{"role": "user", "content": "Hello"}],
+        trace_id=None,
+        profile=profile,
+        tools_enabled=False,
+    )
+
+    assert all("<annulus_tools>" not in str(m.get("content", "")) for m in working)
+
+
+def test_prepare_messages_profile_system_prompt_overrides_default():
+    settings = AnnulusSettings()
+    settings.agent.tool_system_prompt = "<annulus_tools>default</annulus_tools>"
+    runtime = _runtime(settings)
+    profile = ModelProfile(
+        provider="ollama",
+        model="gemma4:26b",
+        supports_tools=True,
+        system_prompt="<annulus_tools>override</annulus_tools>",
+    )
+
+    working, _ = runtime._prepare_messages(
+        [{"role": "user", "content": "Use ripgrep"}],
+        trace_id=None,
+        profile=profile,
+        tools_enabled=True,
+    )
+
+    assert "override" in working[0]["content"]
+    assert "default" not in working[0]["content"]

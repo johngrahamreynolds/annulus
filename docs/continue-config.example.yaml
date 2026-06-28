@@ -41,4 +41,8 @@ models:
 # Profile names (local, local-large, gpt-oss, frontier) map to config/models.yaml.
 # Streaming requests use the full tool loop when the profile has supports_tools: true.
 # Use CLI --no-stream to print annulus metadata (iterations, tool_calls, escalation) inline.
+#
+# Continue: disable built-in tools (Tool Policies) so Annulus runs server-side tools.
+# Continue may inject text saying tools are unavailable; Annulus appends <annulus_tools>
+# to the system message to override that. Do not add custom rules denying tool use.
 # Frontier: configure OPENAI_API_KEY and OPENAI_BASE_URL in .env (LiteLLM ZDR, OpenAI, etc.).

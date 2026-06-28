@@ -69,8 +69,13 @@ class AgentRuntime:
             raise ValueError("Use stream_run() for streaming requests")
 
         profile_key, profile = self.router.resolve_profile(profile_name)
-        working, retrieval_hits = self._prepare_messages(messages, trace_id=trace_id)
         tools_enabled = self.settings.agent.tools_enabled and profile.supports_tools
+        working, retrieval_hits = self._prepare_messages(
+            messages,
+            trace_id=trace_id,
+            profile=profile,
+            tools_enabled=tools_enabled,
+        )
 
         return await self._run_tool_loop(
             working=working,
@@ -91,8 +96,13 @@ class AgentRuntime:
         extra: dict[str, Any] | None = None,
     ) -> AsyncIterator[bytes]:
         profile_key, profile = self.router.resolve_profile(profile_name)
-        working, retrieval_hits = self._prepare_messages(messages, trace_id=trace_id)
         tools_enabled = self.settings.agent.tools_enabled and profile.supports_tools
+        working, retrieval_hits = self._prepare_messages(
+            messages,
+            trace_id=trace_id,
+            profile=profile,
+            tools_enabled=tools_enabled,
+        )
         summary = StreamRunSummary(profile_name=profile_key, retrieval_hits=retrieval_hits)
 
         if not tools_enabled:
@@ -218,9 +228,16 @@ class AgentRuntime:
         messages: list[dict[str, Any]],
         *,
         trace_id: str | None,
+        profile: ModelProfile,
+        tools_enabled: bool,
     ) -> tuple[list[dict[str, Any]], list[str]]:
         working = [dict(m) for m in messages]
         retrieval_hits: list[str] = []
+
+        if tools_enabled:
+            tool_prompt = (profile.system_prompt or self.settings.agent.tool_system_prompt).strip()
+            if tool_prompt:
+                working = _prepend_system_context(working, tool_prompt)
 
         if self.settings.agent.retrieval_enabled:
             query = _last_user_message(working)
