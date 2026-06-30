@@ -63,7 +63,7 @@ Client (Continue / CLI)
   → Response (+ annulus metadata in non-streaming mode)
 ```
 
-Steps 3–4 run for any request whose model profile has `supports_tools: true`. Each model turn streams from Ollama; content/reasoning deltas forward live on the final turn. Turns that emit `tool_calls` run server-side without forwarding those deltas. Profiles with `supports_tools: false` stream via direct model passthrough (retrieval only).
+Steps 3–4 run for any request whose model profile has `supports_tools: true`. Each model turn streams from Ollama; content and reasoning deltas forward live on the final turn. Profiles with `expose_reasoning: true` emit `delta.reasoning_content` for Continue Thought UI instead of folding reasoning into `delta.content`. Turns that emit `tool_calls` run server-side without forwarding those deltas. Profiles with `supports_tools: false` stream via direct model passthrough (retrieval only).
 
 ## Streaming vs non-streaming
 

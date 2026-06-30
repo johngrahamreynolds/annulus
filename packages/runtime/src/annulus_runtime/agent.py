@@ -13,9 +13,10 @@ from annulus_runtime.streaming import (
     assistant_visible_text,
     event_has_tool_call_delta,
     iter_sse_events,
+    normalize_sse_stream,
+    normalize_stream_chunk,
     stream_completion_content,
     stream_status_event,
-    to_cli_stream_chunk,
 )
 from annulus_tools.executor import ToolExecutor
 from annulus_tools.registry import tool_schemas
@@ -112,7 +113,10 @@ class AgentRuntime:
                 stream=True,
                 extra=extra,
             )
-            async for chunk in self.router.stream(profile=profile, payload=payload):
+            async for chunk in normalize_sse_stream(
+                self.router.stream(profile=profile, payload=payload),
+                expose_reasoning=profile.expose_reasoning,
+            ):
                 yield chunk
             summary.iterations = 1
             return
@@ -157,20 +161,26 @@ class AgentRuntime:
                         if event.get("__done__"):
                             saw_done = True
                             if not saw_tool_delta:
-                                cli_chunk = to_cli_stream_chunk(event)
-                                if cli_chunk:
+                                client_chunk = normalize_stream_chunk(
+                                    event,
+                                    expose_reasoning=profile.expose_reasoning,
+                                )
+                                if client_chunk:
                                     forwarded_to_client = True
-                                    yield cli_chunk
+                                    yield client_chunk
                             continue
                         if event_has_tool_call_delta(event):
                             saw_tool_delta = True
                             continue
                         if saw_tool_delta:
                             continue
-                        cli_chunk = to_cli_stream_chunk(event)
-                        if cli_chunk:
+                        client_chunk = normalize_stream_chunk(
+                            event,
+                            expose_reasoning=profile.expose_reasoning,
+                        )
+                        if client_chunk:
                             forwarded_to_client = True
-                            yield cli_chunk
+                            yield client_chunk
             except Exception as exc:
                 self.trace_store.end_span(iter_span.span_id, status="error", error=str(exc))
                 raise
@@ -184,7 +194,13 @@ class AgentRuntime:
                 summary.iterations = iteration + 1
                 if not forwarded_to_client:
                     text = assistant_visible_text(message)
-                    async for chunk in stream_completion_content(text, model=profile_key):
+                    reasoning = str(message.get("reasoning") or "")
+                    async for chunk in stream_completion_content(
+                        text,
+                        model=profile_key,
+                        reasoning=reasoning,
+                        expose_reasoning=profile.expose_reasoning,
+                    ):
                         yield chunk
                 elif not saw_done:
                     yield b"data: [DONE]\n\n"
@@ -220,7 +236,13 @@ class AgentRuntime:
         final = working[-1]
         message = final if isinstance(final, dict) else {"role": "assistant", "content": str(final)}
         text = assistant_visible_text(message)
-        async for chunk in stream_completion_content(text, model=profile_key):
+        reasoning = str(message.get("reasoning") or "")
+        async for chunk in stream_completion_content(
+            text,
+            model=profile_key,
+            reasoning=reasoning,
+            expose_reasoning=profile.expose_reasoning,
+        ):
             yield chunk
 
     def _prepare_messages(

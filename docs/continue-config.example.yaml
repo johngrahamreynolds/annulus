@@ -40,6 +40,8 @@ models:
 # Run `annulus index` before chatting for retrieval-augmented answers.
 # Profile names (local, local-large, gpt-oss, frontier) map to config/models.yaml.
 # Streaming requests use the full tool loop when the profile has supports_tools: true.
+# Gemma4 / gpt-oss profiles set expose_reasoning: true so Continue shows Thought UI
+# (delta.reasoning_content) instead of mixing reasoning into the main chat stream.
 # Use CLI --no-stream to print annulus metadata (iterations, tool_calls, escalation) inline.
 #
 # Continue: disable built-in tools (Tool Policies) so Annulus runs server-side tools.

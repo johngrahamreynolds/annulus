@@ -14,7 +14,7 @@ Add three packages and route all chat through `AgentRuntime`:
 
 Retrieval runs **before** the first model call. Tools run **server-side** inside the gateway (clients do not need MCP for MVP).
 
-Non-streaming responses include an `annulus` metadata block (escalation, retrieval hits, tools used). Streaming requests run the same tool loop when the profile has `supports_tools: true`; each turn uses Ollama streaming, forwarding content/reasoning deltas live on the final turn only. Profiles without tool support still use retrieval-only passthrough streaming.
+Non-streaming responses include an `annulus` metadata block (escalation, retrieval hits, tools used). Streaming requests run the same tool loop when the profile has `supports_tools: true`; each turn uses Ollama streaming, forwarding content and reasoning deltas live on the final turn only. When `expose_reasoning: true`, Ollama `delta.reasoning` is forwarded as `delta.reasoning_content` for Continue's Thought UI instead of being folded into `delta.content`. Profiles without tool support still use retrieval-only passthrough streaming with the same normalization.
 
 ## Consequences
 
@@ -26,7 +26,7 @@ Non-streaming responses include an `annulus` metadata block (escalation, retriev
 
 **Negative**
 
-- Tool-call turns buffer internally (no live forward once `tool_calls` deltas appear); reasoning is mapped to `content` for CLI compatibility — native `reasoning_content` for Continue is a follow-up
+- Tool-call turns buffer internally (no live forward once `tool_calls` deltas appear). Profiles with `expose_reasoning: true` emit `delta.reasoning_content` for Continue Thought UI; otherwise reasoning is mapped to `delta.content` for plain-text clients.
 - FTS5 is lexical only (no embeddings yet)
 - Index must be rebuilt manually (`annulus index`)
 

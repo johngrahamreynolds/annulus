@@ -59,6 +59,7 @@ class ModelProfile(BaseModel):
     model: str
     description: str = ""
     supports_tools: bool = True
+    expose_reasoning: bool = False
     system_prompt: str = ""
 
 
