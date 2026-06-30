@@ -134,4 +134,4 @@ Both are gitignored and persist on the bind-mounted workspace in devcontainer.
 
 ## Architecture and roadmap
 
-See [`docs/architecture/vision.md`](docs/architecture/vision.md) for the long-term platform direction and phased roadmap (v0.3 → v1.0). ADRs **006–014** cover clients, compute, swarms, retrieval, GraphRAG, self-improvement, deployment, tool compatibility, and index watch.
+See [`docs/architecture/vision.md`](docs/architecture/vision.md) for the long-term platform direction and phased roadmap (v0.3 → v1.0). ADRs **006–015** cover clients, compute, swarms, retrieval, GraphRAG, self-improvement, deployment, tool compatibility, index watch, and the v0.4 local SWE assistant.

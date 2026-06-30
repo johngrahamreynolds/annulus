@@ -30,7 +30,7 @@ When `.git` exists in `ANNULUS_WORKSPACE_ROOT`:
 
 **Performance target:** incremental updates proportional to **changed files**, not total repo size. Full rebuild remains available (`annulus index --rebuild`) after model/chunk config changes.
 
-**Not in v0.3 scope:** embedding re-index (v0.4); graph incremental update (v0.5).
+**Not in v0.3 scope:** embedding re-index (v0.4-A); graph incremental update (v0.5). v0.4 must extend watch to re-embed changed chunks — see [ADR-015](adr-015-local-swe-assistant-v04.md).
 
 ## Consequences
 
