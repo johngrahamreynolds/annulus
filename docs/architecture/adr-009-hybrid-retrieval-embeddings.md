@@ -8,7 +8,7 @@ Embeddings are the standard complement to lexical search. Annulus should add the
 
 ## Decision
 
-Add **hybrid retrieval** in `packages/retrieval` (target **v0.4**):
+Add **hybrid retrieval** in `packages/retrieval` (target **v0.4-A** per [ADR-015](adr-015-local-swe-assistant-v04.md)):
 
 ```text
 user query
@@ -67,4 +67,5 @@ retrieval:
 - [vision.md](vision.md)
 - [adr-004-retrieval-tools-agent-loop.md](adr-004-retrieval-tools-agent-loop.md)
 - [adr-007-remote-compute-profiles.md](adr-007-remote-compute-profiles.md)
+- [adr-015-local-swe-assistant-v04.md](adr-015-local-swe-assistant-v04.md)
 - `packages/retrieval/`
