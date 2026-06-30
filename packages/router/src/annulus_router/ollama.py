@@ -26,6 +26,33 @@ class OllamaClient:
                 yield chunk
 
     async def health(self) -> dict[str, Any]:
-        response = await self._client.get("/api/tags")
-        response.raise_for_status()
-        return {"ollama": "ok", "models": response.json()}
+        result: dict[str, Any] = {}
+        try:
+            response = await self._client.get("/api/tags")
+            response.raise_for_status()
+            result["ollama"] = "ok"
+            result["models"] = response.json()
+        except Exception as exc:
+            result["ollama"] = "unavailable"
+            result["ollama_error"] = str(exc)
+            return result
+
+        try:
+            compat = await self._client.get("/v1/models")
+            if compat.status_code == 404:
+                result["ollama_openai_compat"] = "missing"
+                result["ollama_error"] = (
+                    "Ollama is reachable but GET /v1/models returned 404. "
+                    "Upgrade Ollama to a version with OpenAI-compatible API "
+                    "(/v1/chat/completions). See .devcontainer/eval/README.md."
+                )
+            elif compat.status_code >= 400:
+                result["ollama_openai_compat"] = "error"
+                result["ollama_openai_compat_error"] = compat.text[:300]
+            else:
+                result["ollama_openai_compat"] = "ok"
+        except Exception as exc:
+            result["ollama_openai_compat"] = "unavailable"
+            result["ollama_openai_compat_error"] = str(exc)
+
+        return result

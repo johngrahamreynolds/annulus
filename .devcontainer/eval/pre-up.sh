@@ -1,30 +1,35 @@
 #!/usr/bin/env bash
-# Dev Containers runs docker compose before the container exists. Compose interpolates
-# ${ANNULUS_EVAL_REPO} in volume paths from .devcontainer/.env — not from env_file
-# (that only applies inside the running container). Sync eval/.env → ../.env here.
+#
+# Dev Containers runs Docker Compose before the development container exists.
+# Docker Compose interpolates variables in bind mounts from `.devcontainer/.env`,
+# not from `env_file` entries that are only visible inside the running container.
+#
+# This script copies ANNULUS_EVAL_REPO from `.devcontainer/eval/.env` to
+# `.devcontainer/.env` so it is available during Compose interpolation.
+#
+# Notes:
+#   - This script intentionally does not validate the host path.
+#   - Docker is the source of truth for bind mount resolution and already
+#     produces clear errors if the path is invalid or inaccessible.
+#   - Users should provide a host-native path:
+#       macOS/Linux: /Users/... or /home/...
+#       Windows:     C:\Users\...
+#   - Shell scripts in this repository should always use LF line endings.
+#     See `.gitattributes`.
+#
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 EVAL_ENV="${ROOT}/.devcontainer/eval/.env"
 COMPOSE_ENV="${ROOT}/.devcontainer/.env"
 
-if [[ ! -f "${EVAL_ENV}" ]]; then
-  echo "Missing ${EVAL_ENV}" >&2
-  echo "Copy .devcontainer/eval/.env.example to .devcontainer/eval/.env and set ANNULUS_EVAL_REPO." >&2
-  exit 1
-fi
+[[ -f "${EVAL_ENV}" ]]
 
 # shellcheck disable=SC1090
 source "${EVAL_ENV}"
 
-if [[ -z "${ANNULUS_EVAL_REPO:-}" ]]; then
-  echo "ANNULUS_EVAL_REPO is unset in ${EVAL_ENV}" >&2
-  exit 1
-fi
+: "${ANNULUS_EVAL_REPO:?Must be set}"
 
-if [[ ! -d "${ANNULUS_EVAL_REPO}" ]]; then
-  echo "ANNULUS_EVAL_REPO is not a directory: ${ANNULUS_EVAL_REPO}" >&2
-  exit 1
-fi
-
-printf 'ANNULUS_EVAL_REPO=%s\n' "${ANNULUS_EVAL_REPO}" > "${COMPOSE_ENV}"
+printf 'ANNULUS_EVAL_REPO=%s\n' \
+    "${ANNULUS_EVAL_REPO}" \
+    > "${COMPOSE_ENV}"
