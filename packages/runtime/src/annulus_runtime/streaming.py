@@ -61,8 +61,12 @@ def event_has_tool_call_delta(event: dict[str, Any]) -> bool:
     return bool(delta.get("tool_calls"))
 
 
-def to_cli_stream_chunk(event: dict[str, Any]) -> bytes | None:
-    """Normalize a provider chunk for clients that only render delta.content."""
+def normalize_stream_chunk(
+    event: dict[str, Any],
+    *,
+    expose_reasoning: bool = False,
+) -> bytes | None:
+    """Normalize provider SSE chunks for downstream clients."""
     if event.get("__done__"):
         return b"data: [DONE]\n\n"
 
@@ -75,7 +79,10 @@ def to_cli_stream_chunk(event: dict[str, Any]) -> bytes | None:
     if delta.get("tool_calls"):
         return None
 
-    if delta.get("reasoning") and not delta.get("content"):
+    if expose_reasoning:
+        if piece := delta.pop("reasoning", None):
+            delta["reasoning_content"] = f"{delta.get('reasoning_content') or ''}{piece}"
+    elif delta.get("reasoning") and not delta.get("content"):
         reasoning = delta["reasoning"]
         delta = {k: v for k, v in delta.items() if k != "reasoning"}
         delta["content"] = reasoning
@@ -86,6 +93,11 @@ def to_cli_stream_chunk(event: dict[str, Any]) -> bytes | None:
     normalized = copy.deepcopy(event)
     normalized["choices"][0]["delta"] = delta
     return f"data: {json.dumps(normalized)}\n\n".encode()
+
+
+def to_cli_stream_chunk(event: dict[str, Any]) -> bytes | None:
+    """Map reasoning into delta.content for clients that only render content."""
+    return normalize_stream_chunk(event, expose_reasoning=False)
 
 
 def assemble_stream_message(events: list[dict[str, Any]]) -> dict[str, Any]:
@@ -133,12 +145,34 @@ async def stream_completion_content(
     content: str,
     *,
     model: str,
+    reasoning: str = "",
+    expose_reasoning: bool = False,
     completion_id: str | None = None,
     chunk_chars: int = 64,
 ) -> AsyncIterator[bytes]:
     """Emit OpenAI-compatible SSE chunks for a completed assistant message."""
     cid = completion_id or f"chatcmpl-{uuid.uuid4().hex[:24]}"
     created = int(time.time())
+
+    if expose_reasoning and reasoning:
+        if chunk_chars <= 0 or len(reasoning) <= chunk_chars:
+            reasoning_pieces = [reasoning]
+        else:
+            reasoning_pieces = [
+                reasoning[i : i + chunk_chars] for i in range(0, len(reasoning), chunk_chars)
+            ]
+        for index, piece in enumerate(reasoning_pieces):
+            delta: dict[str, Any] = {"reasoning_content": piece}
+            if index == 0:
+                delta["role"] = "assistant"
+            chunk = {
+                "id": cid,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": model,
+                "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
+            }
+            yield f"data: {json.dumps(chunk)}\n\n".encode()
 
     if content:
         if chunk_chars <= 0 or len(content) <= chunk_chars:
@@ -147,8 +181,8 @@ async def stream_completion_content(
             pieces = [content[i : i + chunk_chars] for i in range(0, len(content), chunk_chars)]
 
         for index, piece in enumerate(pieces):
-            delta: dict[str, Any] = {"content": piece}
-            if index == 0:
+            delta = {"content": piece}
+            if index == 0 and not (expose_reasoning and reasoning):
                 delta["role"] = "assistant"
             chunk = {
                 "id": cid,
@@ -174,3 +208,18 @@ async def stream_completion_content(
     }
     yield f"data: {json.dumps(final)}\n\n".encode()
     yield b"data: [DONE]\n\n"
+
+
+async def normalize_sse_stream(
+    raw_chunks: AsyncIterator[bytes],
+    *,
+    expose_reasoning: bool,
+) -> AsyncIterator[bytes]:
+    """Parse provider SSE and emit client-normalized chunks."""
+    buffer = ""
+    async for raw in raw_chunks:
+        events, buffer = iter_sse_events(raw, buffer)
+        for event in events:
+            normalized = normalize_stream_chunk(event, expose_reasoning=expose_reasoning)
+            if normalized:
+                yield normalized

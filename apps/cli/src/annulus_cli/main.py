@@ -121,9 +121,10 @@ def chat(
                         raise typer.Exit(code=1)
                     try:
                         delta = chunk["choices"][0]["delta"]
-                        content = delta.get("content")
-                        if content:
-                            typer.echo(content, nl=False)
+                        for key in ("content", "reasoning_content"):
+                            piece = delta.get(key)
+                            if piece:
+                                typer.echo(piece, nl=False)
                     except (KeyError, IndexError):
                         continue
                 typer.echo()

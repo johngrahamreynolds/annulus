@@ -11,6 +11,7 @@ from annulus_runtime.agent import AgentRuntime, _prepend_system_context
 from annulus_runtime.streaming import (
     assemble_stream_message,
     assistant_visible_text,
+    normalize_stream_chunk,
     stream_completion_content,
     to_cli_stream_chunk,
 )
@@ -42,6 +43,35 @@ def test_to_cli_stream_chunk_maps_reasoning_to_content():
     assert raw is not None
     payload = json.loads(raw.decode().split("data: ", 1)[1].strip())
     assert payload["choices"][0]["delta"]["content"] == "Once upon a time"
+
+
+def test_normalize_stream_chunk_expose_reasoning():
+    event = {
+        "choices": [{"delta": {"reasoning": "Thinking"}, "finish_reason": None}],
+    }
+    raw = normalize_stream_chunk(event, expose_reasoning=True)
+    assert raw is not None
+    payload = json.loads(raw.decode().split("data: ", 1)[1].strip())
+    delta = payload["choices"][0]["delta"]
+    assert delta["reasoning_content"] == "Thinking"
+    assert "reasoning" not in delta
+    assert "content" not in delta
+
+
+def test_normalize_stream_chunk_keeps_content_and_reasoning_separate():
+    event = {
+        "choices": [
+            {
+                "delta": {"reasoning": "Plan:", "content": "Answer"},
+                "finish_reason": None,
+            }
+        ],
+    }
+    raw = normalize_stream_chunk(event, expose_reasoning=True)
+    assert raw is not None
+    delta = json.loads(raw.decode().split("data: ", 1)[1].strip())["choices"][0]["delta"]
+    assert delta["reasoning_content"] == "Plan:"
+    assert delta["content"] == "Answer"
 
 
 def test_assemble_stream_message_merges_tool_calls():
@@ -248,6 +278,12 @@ async def test_stream_run_passthrough_when_tools_disabled():
 @pytest.mark.asyncio
 async def test_stream_run_maps_reasoning_deltas_live():
     settings = _settings()
+    settings.models.profiles["local"] = ModelProfile(
+        provider="ollama",
+        model="llama3.1:8b",
+        supports_tools=True,
+        expose_reasoning=True,
+    )
     router = MagicMock()
     router.resolve_profile.return_value = (
         "local",
@@ -273,7 +309,7 @@ async def test_stream_run_maps_reasoning_deltas_live():
     )
 
     raw = [chunk.decode() async for chunk in runtime.stream_run(messages=[{"role": "user", "content": "Hi"}])]
-    assert any("Backend classes" in line for line in raw)
+    assert any("reasoning_content" in line and "Backend classes" in line for line in raw)
 
 
 def _runtime(settings: AnnulusSettings, *, retrieval_enabled: bool = False) -> AgentRuntime:

@@ -4,7 +4,7 @@
 
 Tool calling quality is **model- and provider-specific**. Early eval (v0.2) used **llama3.1:8b** as the default local profile. v0.3 eval on Apple Silicon + Continue shifted defaults to the **Gemma4** family.
 
-Annulus gates tools with `profile.supports_tools` and only executes `message.tool_calls` ([ADR-004](adr-004-retrieval-tools-agent-loop.md)). There is no content-JSON fallback yet and no per-profile reasoning-channel handling.
+Annulus gates tools with `profile.supports_tools` and only executes `message.tool_calls` ([ADR-004](adr-004-retrieval-tools-agent-loop.md)). There is no content-JSON fallback yet. Reasoning models set `expose_reasoning: true` so streaming emits `delta.reasoning_content` for Continue Thought UI.
 
 ## Compatibility matrix (v0.3 eval)
 
@@ -43,7 +43,7 @@ Introduce a **model tool compatibility** layer (v0.3), separate from the `suppor
 | `native_tool_calls` | Provider returns OpenAI-shaped `tool_calls` | Execute from `message.tool_calls` (default when supports_tools) |
 | `parallel_tool_calls` | Multiple tools in one assistant message | If false, expect at most one tool call per turn (gpt-oss-style) |
 | `content_tool_fallback` | Model emits `{"name", "arguments"}` in `content` | Optional parse-and-execute fallback (qwen-style); off by default |
-| `expose_reasoning` | Stream reasoning separately for clients | Emit `reasoning_content` deltas for Continue Thought UI (not implemented) |
+| `expose_reasoning` | Stream reasoning separately for clients | Emit `reasoning_content` deltas for Continue Thought UI (`local`, `local-large`, `gpt-oss`) |
 
 **Profile tier defaults (`config/models.yaml`):**
 
@@ -76,7 +76,7 @@ Introduce a **model tool compatibility** layer (v0.3), separate from the `suppor
 ## Open questions
 
 - **Conflicting tool instructions:** Continue injects *“THE USER HAS NOT PROVIDED ANY TOOLS…”* when built-in tools are disabled in Tool Policies, while Annulus attaches `tools` on the API request. **Mitigation (v0.3):** `agent.tool_system_prompt` in `config/default.yaml` — appended to the client system message as `<annulus_tools>…</annulus_tools>`. See `docs/continue-config.example.yaml`.
-- **Reasoning presentation:** Continue Thought UI vs Annulus `reasoning` → `content` remap — track separately.
+- **Reasoning presentation:** Profiles with `expose_reasoning: true` stream Ollama `reasoning` as `delta.reasoning_content`. Pre-tool reasoning on tool turns may still appear briefly before `tool_calls` — suppressing that is a follow-up.
 - Ollama-specific fields (`tool_name` on tool role messages, missing `id`) — normalize in router or runtime?
 - When to escalate on tool-format failure vs retry with stripped tools?
 
