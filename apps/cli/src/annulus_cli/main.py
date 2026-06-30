@@ -38,6 +38,8 @@ def health(
     else:
         typer.echo(f"gateway:  {data.get('status', 'unknown')}")
         typer.echo(f"ollama:   {data.get('ollama', 'unknown')}")
+        if compat := data.get("ollama_openai_compat"):
+            typer.echo(f"ollama_openai_compat: {compat}")
         typer.echo(f"frontier: {data.get('frontier', 'unknown')}")
         index = data.get("index", {})
         typer.echo(f"index:    {index.get('files', 0)} files, {index.get('chunks', 0)} chunks")
@@ -46,6 +48,14 @@ def health(
             raise typer.Exit(code=1)
         if data.get("ollama") != "ok":
             typer.echo("warning: Ollama is not reachable from the gateway", err=True)
+            raise typer.Exit(code=1)
+        if data.get("ollama_openai_compat") not in (None, "ok"):
+            typer.echo(
+                f"warning: Ollama OpenAI-compatible API unavailable ({data.get('ollama_openai_compat')})",
+                err=True,
+            )
+            if detail := data.get("ollama_error") or data.get("ollama_openai_compat_error"):
+                typer.echo(f"detail:   {detail}", err=True)
             raise typer.Exit(code=1)
 
 

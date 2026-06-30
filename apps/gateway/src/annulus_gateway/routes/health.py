@@ -38,9 +38,10 @@ async def readiness(
 ) -> dict[str, Any]:
     router_health = await model_router.health()
     ollama_ok = router_health.get("ollama") == "ok"
+    openai_ok = router_health.get("ollama_openai_compat") in (None, "ok")
     index_stats = retriever.stats()
     return {
-        "ready": ollama_ok,
+        "ready": ollama_ok and openai_ok,
         "index_chunks": index_stats.get("chunks", 0),
         **router_health,
     }
