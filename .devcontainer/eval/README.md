@@ -67,7 +67,13 @@ In another terminal inside the container (or background the gateway):
 
 ```bash
 uv run annulus health
+uv run annulus chat "Where is the agent loop?" --no-stream
+uv run annulus traces last
 ```
+
+After a chat or Continue session, **`annulus traces last`** shows retrieval hits, tool calls, and iterations for the most recent run. Use **`annulus traces list`** for history, then **`traces show <trace_id>`** for a specific run.
+
+Spans are shown as a **flat timeline** in v0.3 (not nested under parents yet). The trace id is the same as **`X-Annulus-Trace-Id`** on the HTTP response if you need it from curl or devtools; it is not displayed in the chat UI.
 
 Expect `ollama: ok` and `ollama_openai_compat: ok` (or check JSON with `--json`).
 

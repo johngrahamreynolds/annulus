@@ -15,7 +15,7 @@ Local-first, model-agnostic agentic AI platform. The gateway exposes an OpenAI-c
 ```text
 annulus/
 ├── apps/
-│   ├── cli/                 # annulus health | index | chat
+│   ├── cli/                 # annulus health | index | chat | traces
 │   └── gateway/             # FastAPI gateway
 ├── packages/
 │   ├── core/                # Config and shared types
@@ -149,6 +149,22 @@ v0.3 changed the FTS5 layout (standalone table with `chunk_id`, not external-con
 Opening the index auto-migrates the FTS table schema when needed, but a rebuild repopulates search data and resets index metadata (`.annulus/index_meta.json`). Without a rebuild, search can be empty or stale until the next full pass.
 
 Alternatively, delete `.annulus/` and run `annulus index --rebuild`.
+
+## Traces
+
+Agent runs are recorded in `.annulus/traces.db` (spans for chat, retrieval, tools, iterations). Inspect them without opening SQLite:
+
+| Command | When to use |
+|---------|-------------|
+| `annulus traces list` | Recent runs (`--limit`, `--json`) |
+| `annulus traces show <trace_id>` | Spans for one run (from `list` or API header) |
+| `annulus traces last` | Most recent run — default after `annulus chat` or Continue |
+
+After a chat, **`annulus traces last`** is usually enough. Use **`traces list`** then **`traces show <id>`** for an older run.
+
+**v0.3 display:** `traces show` renders spans as a **flat timeline** (chronological list: `chat.completions`, `retrieval.search`, `agent.iteration`, `tool.*`). Nested indentation under parent spans is planned for a later release once the runtime wires `parent_span_id`.
+
+The gateway sets **`X-Annulus-Trace-Id`** on HTTP responses for API clients; it is not shown in Continue or chat output. Same id as `trace_id` in `traces list`. Use `--json` for scripting.
 
 ## Data files
 

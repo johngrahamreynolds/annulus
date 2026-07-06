@@ -7,6 +7,7 @@ from typing import Annotated
 import httpx
 import typer
 from annulus_core.config import load_settings
+from annulus_cli.traces import traces_app
 from annulus_retrieval.indexer import Indexer
 from annulus_retrieval.worker import run_watch
 from typer import Option
@@ -19,6 +20,7 @@ app = typer.Typer(
 
 index_app = typer.Typer(help="Index the workspace for retrieval (FTS5)")
 app.add_typer(index_app, name="index")
+app.add_typer(traces_app, name="traces")
 
 
 def _client(settings, timeout: float = 300.0) -> httpx.Client:
