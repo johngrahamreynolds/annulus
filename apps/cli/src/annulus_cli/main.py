@@ -8,6 +8,7 @@ import httpx
 import typer
 from annulus_core.config import load_settings
 from annulus_retrieval.indexer import Indexer
+from annulus_retrieval.worker import run_watch
 from typer import Option
 
 app = typer.Typer(
@@ -15,6 +16,9 @@ app = typer.Typer(
     help="Annulus local-first agentic AI platform CLI",
     no_args_is_help=True,
 )
+
+index_app = typer.Typer(help="Index the workspace for retrieval (FTS5)")
+app.add_typer(index_app, name="index")
 
 
 def _client(settings, timeout: float = 300.0) -> httpx.Client:
@@ -59,21 +63,48 @@ def health(
             raise typer.Exit(code=1)
 
 
-@app.command("index")
-def index(
-    rebuild: Annotated[bool, Option("--rebuild", help="Rebuild index from scratch")] = True,
+@index_app.callback(invoke_without_command=True)
+def index_workspace(
+    ctx: typer.Context,
+    rebuild: Annotated[bool, Option("--rebuild", help="Rebuild index from scratch")] = False,
     json_output: Annotated[bool, Option("--json", help="Emit JSON")] = False,
 ) -> None:
     """Index the workspace for retrieval (FTS5 over code and docs)."""
+    if ctx.invoked_subcommand is not None:
+        return
+
     settings = load_settings()
     indexer = Indexer(settings)
-    stats = indexer.index_all(rebuild=rebuild)
+    if rebuild:
+        stats = indexer.index_all(rebuild=True)
+    else:
+        stats = indexer.index_incremental()
     stats["index_db"] = str(settings.resolve_index_db())
     if json_output:
         typer.echo(json.dumps(stats, indent=2))
     else:
-        typer.echo(f"Indexed {stats['files']} files, {stats['chunks']} chunks")
+        mode = stats.get("mode", "full")
+        typer.echo(
+            f"Indexed {stats['files']} files, {stats['chunks']} chunks "
+            f"({mode}, strategy={stats.get('strategy', 'full')})"
+        )
+        if removed := stats.get("removed"):
+            typer.echo(f"Removed {removed} deleted files from index")
         typer.echo(f"Index DB: {settings.resolve_index_db()}")
+
+
+@index_app.command("watch")
+def index_watch(
+    interval: Annotated[
+        float | None,
+        Option("--interval", "-i", help="Seconds between incremental passes"),
+    ] = None,
+    once: Annotated[bool, Option("--once", help="Run one incremental pass and exit")] = False,
+) -> None:
+    """Watch workspace changes and incrementally update the index."""
+    settings = load_settings()
+    seconds = interval if interval is not None else float(settings.retrieval.index_watch_interval_seconds)
+    run_watch(interval_seconds=seconds, once=once)
 
 
 @app.command("chat")

@@ -16,6 +16,15 @@ class ChunkRow:
     content: str
 
 
+_FTS_DDL = """
+CREATE VIRTUAL TABLE chunks_fts USING fts5(
+    path,
+    content,
+    chunk_id UNINDEXED
+);
+"""
+
+
 class IndexStore:
     def __init__(self, db_path: Path) -> None:
         self.db_path = db_path
@@ -49,28 +58,54 @@ class IndexStore:
                     content TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_chunks_path ON chunks(path);
-                CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
-                    path,
-                    content,
-                    content='chunks',
-                    content_rowid='id'
-                );
                 """
             )
+            self._ensure_fts_schema(conn)
+
+    def _fts_has_chunk_id(self, conn: sqlite3.Connection) -> bool:
+        try:
+            conn.execute("SELECT chunk_id FROM chunks_fts LIMIT 0")
+        except sqlite3.OperationalError:
+            return False
+        return True
+
+    def _ensure_fts_schema(self, conn: sqlite3.Connection) -> None:
+        row = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'chunks_fts'"
+        ).fetchone()
+        if row and self._fts_has_chunk_id(conn):
+            return
+        conn.execute("DROP TABLE IF EXISTS chunks_fts")
+        conn.executescript(_FTS_DDL)
 
     def clear(self) -> None:
         with self._connect() as conn:
+            conn.execute("DROP TABLE IF EXISTS chunks_fts")
             conn.executescript(
                 """
-                DELETE FROM chunks_fts;
                 DELETE FROM chunks;
                 DELETE FROM files;
                 """
             )
+            self._ensure_fts_schema(conn)
+
+    def _delete_path_rows(self, conn: sqlite3.Connection, path: str) -> None:
+        conn.execute("DELETE FROM chunks_fts WHERE path = ?", (path,))
+        conn.execute("DELETE FROM chunks WHERE path = ?", (path,))
+
+    def delete_file(self, path: str) -> None:
+        with self._connect() as conn:
+            self._delete_path_rows(conn, path)
+            conn.execute("DELETE FROM files WHERE path = ?", (path,))
+
+    def list_files(self) -> list[tuple[str, float]]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT path, mtime FROM files ORDER BY path").fetchall()
+        return [(row["path"], row["mtime"]) for row in rows]
 
     def upsert_file(self, path: str, mtime: float, indexed_at: str) -> None:
         with self._connect() as conn:
-            conn.execute("DELETE FROM chunks WHERE path = ?", (path,))
+            self._delete_path_rows(conn, path)
             conn.execute(
                 "INSERT OR REPLACE INTO files(path, mtime, indexed_at) VALUES (?, ?, ?)",
                 (path, mtime, indexed_at),
@@ -85,10 +120,10 @@ class IndexStore:
                 """,
                 (path, start_line, end_line, content),
             )
-            rowid = cursor.lastrowid
+            chunk_id = cursor.lastrowid
             conn.execute(
-                "INSERT INTO chunks_fts(rowid, path, content) VALUES (?, ?, ?)",
-                (rowid, path, content),
+                "INSERT INTO chunks_fts(path, content, chunk_id) VALUES (?, ?, ?)",
+                (path, content, chunk_id),
             )
 
     def stats(self) -> dict[str, int]:
@@ -103,7 +138,7 @@ class IndexStore:
                 """
                 SELECT c.id, c.path, c.start_line, c.end_line, c.content
                 FROM chunks_fts f
-                JOIN chunks c ON c.id = f.rowid
+                JOIN chunks c ON c.id = f.chunk_id
                 WHERE chunks_fts MATCH ?
                 ORDER BY rank
                 LIMIT ?

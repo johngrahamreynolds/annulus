@@ -1,4 +1,4 @@
-# Status: Proposed
+# Status: Accepted
 
 ## Context
 
@@ -29,6 +29,12 @@ When `.git` exists in `ANNULUS_WORKSPACE_ROOT`:
 | Gateway background | Optional `agent.index_watch_enabled` for sidecar “just works” |
 
 **Performance target:** incremental updates proportional to **changed files**, not total repo size. Full rebuild remains available (`annulus index --rebuild`) after model/chunk config changes.
+
+**CLI defaults (v0.3):** `annulus index` runs incremental indexing; `--rebuild` forces a full pass. `annulus index watch` polls on `retrieval.index_watch_interval_seconds` (default 30s).
+
+**FTS5 storage change:** Pre-v0.3 indexes used FTS5 *external content* (`content='chunks'`) with special `'delete'` commands. That layout corrupted the FTS segment on file delete/re-index (`database disk image is malformed`). v0.3 uses a **standalone** `chunks_fts` table with `chunk_id UNINDEXED`; path deletes run `DELETE FROM chunks_fts WHERE path = ?`, and search joins `chunks` on `chunk_id`.
+
+**Upgrade path:** `IndexStore` drops and recreates `chunks_fts` on open when the legacy schema is detected (missing `chunk_id`). Existing chunk rows remain, but FTS may be empty until repopulated. Contributors and eval users with an old `/target/.annulus/index.db` must run **`annulus index --rebuild` once** after upgrading (documented in root `README.md` and `.devcontainer/eval/README.md`). `clear()` used by `--rebuild` resets chunks, files, FTS, and `index_meta.json`.
 
 **Not in v0.3 scope:** embedding re-index (v0.4-A); graph incremental update (v0.5). v0.4 must extend watch to re-embed changed chunks — see [ADR-015](adr-015-local-swe-assistant-v04.md).
 

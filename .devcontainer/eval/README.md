@@ -38,8 +38,30 @@ Day-to-day dev uses `.devcontainer/default/devcontainer.json`.
 ```bash
 echo $ANNULUS_WORKSPACE_ROOT   # /target
 ls /target
-cd /workspace && uv sync --group dev && uv run annulus index && uv run annulus-gateway
+cd /workspace && uv sync --group dev && uv run annulus index --rebuild && uv run annulus-gateway
 ```
+
+For day-to-day eval on a git repo, run incremental indexing in a second terminal:
+
+```bash
+uv run annulus index watch
+```
+
+Or a one-shot update after edits: `uv run annulus index` (incremental by default). Use `uv run annulus index --rebuild` after chunk config changes.
+
+Optional gateway background watch: set `agent.index_watch_enabled: true` in `config/default.yaml`.
+
+### Upgrading Annulus (existing eval workspaces)
+
+If `/target/.annulus/index.db` was created before v0.3 incremental watch, run a **one-time rebuild** after pulling Annulus:
+
+```bash
+uv run annulus index --rebuild
+```
+
+v0.3 uses a new FTS5 schema (required for safe incremental deletes). The store migrates the FTS table on open, but rebuild ensures chunks and search stay in sync. Symptoms of a stale index: empty retrieval, `database disk image is malformed`, or `table chunks_fts has no column named chunk_id` — all fixed by `--rebuild` (or delete `/target/.annulus/` and rebuild).
+
+Default `annulus index` (no flags) is **incremental**, not a full rebuild.
 
 In another terminal inside the container (or background the gateway):
 

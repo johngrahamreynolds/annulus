@@ -15,6 +15,7 @@ agent:
   tools_enabled: true
   retrieval_enabled: true
   retrieval_top_k: 5
+  index_watch_enabled: false
   # Appended to the system message when the profile has supports_tools: true.
   tool_system_prompt: |
     <annulus_tools>
@@ -49,6 +50,7 @@ retrieval:
     - .gz
   max_chunk_chars: 2000
   overlap_chars: 200
+  index_watch_interval_seconds: 30
 
 tools:
   sandbox_root: "."
