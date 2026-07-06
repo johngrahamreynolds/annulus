@@ -1,5 +1,5 @@
 """Annulus trace store."""
 
-from annulus_trace.store import TraceRecord, TraceStore
+from annulus_trace.store import SpanNode, TraceRecord, TraceStore, TraceSummary
 
-__all__ = ["TraceRecord", "TraceStore"]
+__all__ = ["SpanNode", "TraceRecord", "TraceStore", "TraceSummary"]

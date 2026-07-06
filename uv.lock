@@ -71,6 +71,7 @@ source = { editable = "apps/cli" }
 dependencies = [
     { name = "annulus-core" },
     { name = "annulus-retrieval" },
+    { name = "annulus-trace" },
     { name = "httpx" },
     { name = "typer" },
 ]
@@ -79,6 +80,7 @@ dependencies = [
 requires-dist = [
     { name = "annulus-core", editable = "packages/core" },
     { name = "annulus-retrieval", editable = "packages/retrieval" },
+    { name = "annulus-trace", editable = "packages/trace" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "typer", specifier = ">=0.12" },
 ]

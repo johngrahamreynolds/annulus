@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from collections import defaultdict
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -21,6 +22,24 @@ class TraceRecord:
     attributes: dict[str, Any] = field(default_factory=dict)
     status: str = "ok"
     error: str | None = None
+    parent_span_id: str | None = None
+
+
+@dataclass
+class TraceSummary:
+    trace_id: str
+    started_at: datetime
+    ended_at: datetime | None
+    span_count: int
+    status: str
+    root_name: str
+    attributes: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SpanNode:
+    span: TraceRecord
+    children: list[SpanNode] = field(default_factory=list)
 
 
 class TraceStore:
@@ -59,6 +78,26 @@ class TraceStore:
                 """
             )
 
+    @staticmethod
+    def _parse_dt(value: str | None) -> datetime | None:
+        if not value:
+            return None
+        return datetime.fromisoformat(value)
+
+    @classmethod
+    def _row_to_record(cls, row: sqlite3.Row) -> TraceRecord:
+        return TraceRecord(
+            trace_id=row["trace_id"],
+            span_id=row["span_id"],
+            name=row["name"],
+            started_at=cls._parse_dt(row["started_at"]) or datetime.now(UTC),
+            ended_at=cls._parse_dt(row["ended_at"]),
+            attributes=json.loads(row["attributes_json"] or "{}"),
+            status=row["status"],
+            error=row["error"],
+            parent_span_id=row["parent_span_id"],
+        )
+
     def start_span(
         self,
         name: str,
@@ -73,6 +112,7 @@ class TraceStore:
             name=name,
             started_at=datetime.now(UTC),
             attributes=attributes or {},
+            parent_span_id=parent_span_id,
         )
         with self._connect() as conn:
             conn.execute(
@@ -144,3 +184,89 @@ class TraceStore:
         except Exception as exc:
             self.end_span(record.span_id, status="error", error=str(exc))
             raise
+
+    def list_traces(self, *, limit: int = 20) -> list[TraceSummary]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    trace_id,
+                    MIN(started_at) AS started_at,
+                    MAX(ended_at) AS ended_at,
+                    COUNT(*) AS span_count,
+                    MAX(CASE WHEN status != 'ok' THEN 1 ELSE 0 END) AS has_error
+                FROM traces
+                GROUP BY trace_id
+                ORDER BY MIN(started_at) DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+
+            summaries: list[TraceSummary] = []
+            for row in rows:
+                root = conn.execute(
+                    """
+                    SELECT name, attributes_json
+                    FROM traces
+                    WHERE trace_id = ?
+                    ORDER BY
+                        CASE WHEN name = 'chat.completions' THEN 0 ELSE 1 END,
+                        started_at ASC
+                    LIMIT 1
+                    """,
+                    (row["trace_id"],),
+                ).fetchone()
+                summaries.append(
+                    TraceSummary(
+                        trace_id=row["trace_id"],
+                        started_at=self._parse_dt(row["started_at"]) or datetime.now(UTC),
+                        ended_at=self._parse_dt(row["ended_at"]),
+                        span_count=row["span_count"],
+                        status="error" if row["has_error"] else "ok",
+                        root_name=root["name"] if root else "unknown",
+                        attributes=json.loads(root["attributes_json"] or "{}") if root else {},
+                    )
+                )
+            return summaries
+
+    def latest_trace_id(self) -> str | None:
+        summaries = self.list_traces(limit=1)
+        return summaries[0].trace_id if summaries else None
+
+    def get_spans(self, trace_id: str) -> list[TraceRecord]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM traces
+                WHERE trace_id = ?
+                ORDER BY started_at ASC
+                """,
+                (trace_id,),
+            ).fetchall()
+        return [self._row_to_record(row) for row in rows]
+
+    @staticmethod
+    def build_span_tree(spans: list[TraceRecord]) -> list[SpanNode]:
+        if not spans:
+            return []
+
+        by_id = {span.span_id: span for span in spans}
+        children: dict[str, list[TraceRecord]] = defaultdict(list)
+        roots: list[TraceRecord] = []
+
+        for span in spans:
+            parent_id = span.parent_span_id
+            if parent_id and parent_id in by_id:
+                children[parent_id].append(span)
+            else:
+                roots.append(span)
+
+        roots.sort(key=lambda span: span.started_at)
+
+        def make_node(span: TraceRecord) -> SpanNode:
+            child_spans = sorted(children.get(span.span_id, []), key=lambda s: s.started_at)
+            return SpanNode(span=span, children=[make_node(child) for child in child_spans])
+
+        return [make_node(root) for root in roots]
