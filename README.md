@@ -37,6 +37,9 @@ cp .env.example .env
 uv sync --group dev
 
 # 1. Index your workspace (required for retrieval)
+# First time, or after upgrading from pre-v0.3 builds with an existing .annulus/:
+uv run annulus index --rebuild
+# Day to day: incremental update (default)
 uv run annulus index
 
 # 2. Start gateway
@@ -109,8 +112,9 @@ The gateway container bind-mounts the repo read-only at `/workspace` for indexin
 **Devcontainer** (`.devcontainer/`): opens a `dev` service with the repo at `/workspace`. After `uv sync --group dev`:
 
 ```bash
-uv run annulus index
+uv run annulus index --rebuild   # once per workspace (or after Annulus upgrade)
 uv run annulus-gateway
+uv run annulus index watch       # optional: keep index fresh while you edit
 ```
 
 Run the gateway as a process inside `dev`; port 8080 is forwarded to the host for Continue and `annulus health`. Images include `ripgrep` for the agent `ripgrep` tool.
@@ -123,14 +127,38 @@ uv run ruff check .
 uv run pytest
 ```
 
+## Indexing
+
+Retrieval reads from `.annulus/index.db` (FTS5 over chunked workspace files). Add `.annulus/` to your repo `.gitignore`.
+
+| Command | When to use |
+|---------|-------------|
+| `annulus index` | Default: incremental update (git diff or mtime since last run) |
+| `annulus index --rebuild` | Full rebuild — first index, after chunk/ignore config changes, or after upgrading Annulus |
+| `annulus index watch` | Long-running loop; re-runs incremental index on an interval (see `retrieval.index_watch_interval_seconds`) |
+
+Gateway can run the same watch in the background when `agent.index_watch_enabled: true` in `config/default.yaml`.
+
+### Upgrading from older Annulus builds
+
+v0.3 changed the FTS5 layout (standalone table with `chunk_id`, not external-content FTS) so incremental delete/re-index stays consistent. If you already have `.annulus/index.db` from an earlier build:
+
+1. Pull the new Annulus version and `uv sync`.
+2. Run **`annulus index --rebuild` once** per workspace (eval target at `/target`, devcontainer at `/workspace`, etc.).
+
+Opening the index auto-migrates the FTS table schema when needed, but a rebuild repopulates search data and resets index metadata (`.annulus/index_meta.json`). Without a rebuild, search can be empty or stale until the next full pass.
+
+Alternatively, delete `.annulus/` and run `annulus index --rebuild`.
+
 ## Data files
 
 | Path | Contents |
 |------|----------|
 | `.annulus/traces.db` | Request/tool/retrieval spans |
 | `.annulus/index.db` | FTS5 code/doc index |
+| `.annulus/index_meta.json` | Last indexed commit / strategy (incremental watch) |
 
-Both are gitignored and persist on the bind-mounted workspace in devcontainer.
+All under `.annulus/` are gitignored and persist on the bind-mounted workspace in devcontainer.
 
 ## Architecture and roadmap
 

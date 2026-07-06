@@ -37,7 +37,8 @@ models:
     roles:
       - chat
 
-# Run `annulus index` before chatting for retrieval-augmented answers.
+# Index the workspace before chatting (`annulus index --rebuild` once, then incremental
+# `annulus index` or `annulus index watch`). After upgrading Annulus, run --rebuild once.
 # Profile names (local, local-large, gpt-oss, frontier) map to config/models.yaml.
 # Streaming requests use the full tool loop when the profile has supports_tools: true.
 # Gemma4 / gpt-oss profiles set expose_reasoning: true so Continue shows Thought UI

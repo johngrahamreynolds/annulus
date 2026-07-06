@@ -28,7 +28,7 @@ Non-streaming responses include an `annulus` metadata block (escalation, retriev
 
 - Tool-call turns buffer internally (no live forward once `tool_calls` deltas appear). Profiles with `expose_reasoning: true` emit `delta.reasoning_content` for Continue Thought UI; otherwise reasoning is mapped to `delta.content` for plain-text clients.
 - FTS5 is lexical only (no embeddings yet)
-- Index must be rebuilt manually (`annulus index`)
+- Index freshness depends on incremental `annulus index`, `annulus index watch`, or optional gateway background watch ([ADR-014](adr-014-incremental-index-watch.md)); full `--rebuild` after config changes or FTS schema upgrades
 
 ## References
 

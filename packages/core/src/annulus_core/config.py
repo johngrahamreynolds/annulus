@@ -37,6 +37,7 @@ class AgentConfig(BaseModel):
     tools_enabled: bool = True
     retrieval_enabled: bool = True
     retrieval_top_k: int = 5
+    index_watch_enabled: bool = False
     tool_system_prompt: str = DEFAULT_TOOL_SYSTEM_PROMPT
 
 
@@ -47,6 +48,7 @@ class RetrievalConfig(BaseModel):
     exclude_extensions: list[str] = Field(default_factory=lambda: [".pyc", ".png", ".jpg", ".pdf"])
     max_chunk_chars: int = 2000
     overlap_chars: int = 200
+    index_watch_interval_seconds: int = 30
 
 
 class ToolsConfig(BaseModel):
