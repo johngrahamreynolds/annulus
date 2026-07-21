@@ -1,6 +1,6 @@
 # Annulus
 
-Local-first, model-agnostic agentic AI platform. The gateway exposes an OpenAI-compatible API with **retrieval-augmented** chat, a **server-side tool loop** (`read_file`, `ripgrep`), SQLite tracing, and **frontier escalation** when local models fail.
+Local-first, model-agnostic agentic AI platform. The gateway exposes an OpenAI-compatible API with **retrieval-augmented** chat, a **server-side tool loop** (`read_file`, `ripgrep`, `git_status`, `git_diff`), SQLite tracing, and **frontier escalation** when local models fail.
 
 ## Features (v0.2)
 
@@ -22,7 +22,7 @@ annulus/
 │   ├── router/              # Ollama + OpenAI providers, escalation
 │   ├── trace/               # SQLite trace store
 │   ├── retrieval/           # Indexer + FTS retriever
-│   ├── tools/               # read_file, ripgrep
+│   ├── tools/               # read_file, ripgrep, git_status, git_diff
 │   └── runtime/             # Agent loop (retrieval → model → tools)
 ├── config/                  # YAML configuration
 ├── docker/
@@ -60,7 +60,7 @@ Client (Continue / CLI)
   → AgentRuntime
       1. Retriever.search(user query) → inject context
       2. ModelRouter.complete (local Ollama)
-      3. If tool_calls → ToolExecutor (read_file / ripgrep) → loop
+      3. If tool_calls → ToolExecutor (read_file / ripgrep / git_*) → loop
       4. If local error/empty → escalate to frontier (OpenAI-compatible API)
   → TraceStore (SQLite spans — observability only, not chat memory)
   → Response (+ annulus metadata in non-streaming mode)

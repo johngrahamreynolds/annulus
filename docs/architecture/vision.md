@@ -80,7 +80,7 @@ An **agentic engineering and research platform**: grounded in the user's repos, 
 | Multi-step research workflows | v0.7 swarm orchestrator |
 | Hard to inspect hits and tool spans while working | v1 Annulus UI |
 | Tool returns too few matches (rg / top_k / model summarization) | Tool defaults, retrieval `top_k`, response prompting; see work-eval notes |
-| Search-only feels like Ctrl+F; need edit/write/diff for SWE MVP | v0.3 git tools; v0.4 propose_edit + Continue edit/apply ([ADR-015](adr-015-local-swe-assistant-v04.md)) |
+| Search-only feels like Ctrl+F; need edit/write/diff for SWE MVP | v0.3 git tools (shipped); v0.4 propose_edit + Continue edit/apply ([ADR-015](adr-015-local-swe-assistant-v04.md)) |
 | Engine in Annulus window vs code in target window | Target-native sidecar / index watch (v0.3 deployment) |
 | Model cites "supplied context" awkwardly | System prompt / injection format tuning |
 | Model emits tool JSON in content, not `tool_calls` | [ADR-013](adr-013-model-tool-compatibility.md) — probe, profile flags, optional fallback |

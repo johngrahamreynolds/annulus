@@ -7,6 +7,8 @@ from typing import Any
 
 from annulus_core.config import AnnulusSettings
 
+from annulus_tools.git_tools import git_available, run_git, truncate_output
+
 
 class ToolExecutor:
     def __init__(self, settings: AnnulusSettings) -> None:
@@ -18,6 +20,10 @@ class ToolExecutor:
             return self._read_file(arguments)
         if name == "ripgrep":
             return self._ripgrep(arguments)
+        if name == "git_status":
+            return self._git_status()
+        if name == "git_diff":
+            return self._git_diff(arguments)
         return json.dumps({"error": f"Unknown tool: {name}"})
 
     def _resolve_path(self, rel_path: str) -> Path:
@@ -64,10 +70,66 @@ class ToolExecutor:
         except FileNotFoundError:
             return json.dumps({"error": "ripgrep (rg) is not installed"})
         if proc.returncode not in (0, 1):
-            output = proc.stderr.strip() or proc.stdout.strip() or f"rg exited with code {proc.returncode}"
+            output = (
+                proc.stderr.strip()
+                or proc.stdout.strip()
+                or f"rg exited with code {proc.returncode}"
+            )
         else:
             output = proc.stdout.strip() or "(no matches)"
         return json.dumps({"pattern": pattern, "path": rel_path, "output": output[:8000]})
+
+    def _git_status(self) -> str:
+        if not git_available(self.root):
+            return json.dumps({"error": "Not a git repository"})
+        branch_code, branch_out, branch_err = run_git(self.root, "branch", "--show-current")
+        status_code, status_out, status_err = run_git(
+            self.root,
+            "status",
+            "--porcelain=v1",
+            "-b",
+        )
+        if branch_code not in (0,) and status_code not in (0,):
+            detail = (branch_err or status_err or "git status failed").strip()
+            return json.dumps({"error": detail})
+        branch = branch_out.strip() or "(detached)"
+        status_text, truncated = truncate_output(status_out.strip() or "(clean)")
+        payload: dict[str, Any] = {"branch": branch, "status": status_text}
+        if truncated:
+            payload["truncated"] = True
+        return json.dumps(payload)
+
+    def _git_diff(self, arguments: dict[str, Any]) -> str:
+        if not git_available(self.root):
+            return json.dumps({"error": "Not a git repository"})
+        staged = bool(arguments.get("staged"))
+        cmd: list[str] = ["diff"]
+        if staged:
+            cmd.append("--staged")
+        rel_path = arguments.get("path")
+        if rel_path:
+            resolved = self._resolve_path(self._normalize_rel_path(rel_path))
+            if not resolved.exists():
+                return json.dumps({"error": f"Path not found: {rel_path}"})
+            rel = (
+                "."
+                if resolved == self.root
+                else str(resolved.relative_to(self.root))
+            )
+            cmd.extend(["--", rel])
+        code, stdout, stderr = run_git(self.root, *cmd, timeout=60)
+        if code not in (0, 1):
+            detail = (stderr or stdout or f"git diff exited with code {code}").strip()
+            return json.dumps({"error": detail})
+        diff_text, truncated = truncate_output(stdout.strip() or "(no diff)")
+        payload: dict[str, Any] = {
+            "staged": staged,
+            "path": rel_path or ".",
+            "diff": diff_text,
+        }
+        if truncated:
+            payload["truncated"] = True
+        return json.dumps(payload)
 
     @staticmethod
     def _normalize_rel_path(value: Any) -> str:
