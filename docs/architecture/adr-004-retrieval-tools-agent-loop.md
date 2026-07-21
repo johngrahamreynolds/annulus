@@ -9,7 +9,7 @@ The MVP gateway passthrough proved Continue integration and local Ollama routing
 Add three packages and route all chat through `AgentRuntime`:
 
 1. **`packages/retrieval`** — SQLite FTS5 index (`annulus index`) over workspace files
-2. **`packages/tools`** — sandboxed `read_file` and `ripgrep` tools
+2. **`packages/tools`** — sandboxed `read_file`, `ripgrep`, `git_status`, and `git_diff` tools
 3. **`packages/runtime`** — loop: retrieve → complete → execute tools → repeat
 
 Retrieval runs **before** the first model call. Tools run **server-side** inside the gateway (clients do not need MCP for MVP).

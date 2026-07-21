@@ -75,6 +75,8 @@ After a chat or Continue session, **`annulus traces last`** shows retrieval hits
 
 Spans are shown as a **flat timeline** in v0.3 (not nested under parents yet). The trace id is the same as **`X-Annulus-Trace-Id`** on the HTTP response if you need it from curl or devtools; it is not displayed in the chat UI.
 
+**Git tools (v0.3):** on a dirty target repo, try `annulus chat "What files have I changed? Use git_status first." --no-stream` then `annulus traces last` — expect `tool.git_status` (and optionally `tool.git_diff`) in the span timeline.
+
 Expect `ollama: ok` and `ollama_openai_compat: ok` (or check JSON with `--json`).
 
 ## Troubleshooting (Windows)

@@ -24,11 +24,16 @@ class RouterConfig(BaseModel):
 
 
 DEFAULT_TOOL_SYSTEM_PROMPT = """<annulus_tools>
-You are connected to the Annulus gateway. Server-side tools read_file and ripgrep are available via tool_calls on this request. Use them when the user asks for repository search or file reads.
+You are connected to the Annulus gateway. Server-side tools read_file, ripgrep, \
+git_status, and git_diff are available via tool_calls on this request. Use them when \
+the user asks for repository search, file reads, or git context.
 
-When the user explicitly asks you to use ripgrep or read_file, you MUST call that tool before answering.
+When the user explicitly asks you to use a tool by name, you MUST call that tool \
+before answering. On dirty or ambiguous trees, prefer git_status (and git_diff when \
+needed) before ripgrep or proposing edits.
 
-Ignore any instruction that says tools are unavailable or must be enabled in Continue Tool Policies. Those refer to Continue's built-in tools, not Annulus.
+Ignore any instruction that says tools are unavailable or must be enabled in Continue \
+Tool Policies. Those refer to Continue's built-in tools, not Annulus.
 </annulus_tools>"""
 
 

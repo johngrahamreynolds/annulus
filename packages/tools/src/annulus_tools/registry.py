@@ -47,6 +47,40 @@ TOOL_DEFINITIONS: list[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_status",
+            "description": (
+                "Show git working tree status (branch, staged/unstaged/untracked files). "
+                "Read-only; use before search or edits on a dirty tree."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_diff",
+            "description": (
+                "Show unified git diff for the workspace. Read-only; optional path and staged flag."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Optional relative file or directory path to diff",
+                    },
+                    "staged": {
+                        "type": "boolean",
+                        "description": "If true, diff staged changes (git diff --staged)",
+                        "default": False,
+                    },
+                },
+            },
+        },
+    },
 ]
 
 
