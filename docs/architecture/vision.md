@@ -70,6 +70,10 @@ An **agentic engineering and research platform**: grounded in the user's repos, 
 | [014](adr-014-incremental-index-watch.md) | Git-aware incremental index watch |
 | [015](adr-015-local-swe-assistant-v04.md) | Local SWE assistant (v0.4 edit + hybrid retrieval) |
 
+## Architecture reviews
+
+Point-in-time gap analyses vs this vision (historical snapshots, not live status): [reviews/](reviews/README.md).
+
 ## Eval signals → next work
 
 | Symptom in eval | Likely next layer |
