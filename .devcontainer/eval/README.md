@@ -125,9 +125,9 @@ Use profile **`local`** (12B) by default, or **`local-large`** (26B) for heavier
 | **Git context** | What files have I changed? Use git_status first, then summarize. | `tool.git_status` (and optionally `tool.git_diff`) |
 | **Multi-turn** (same thread) | **Turn 1:** Use ripgrep to find the Indexer class in `packages/retrieval`. **Turn 2:** Read its `index_incremental` method and explain git vs mtime strategy. | Turn 1: `tool.ripgrep`; Turn 2: `tool.read_file` or retrieval |
 
-After any tool-heavy prompt, run **`annulus traces last`** and confirm span names, iteration count, and retrieval hits. Use **`annulus traces list`** for history.
+After any tool-heavy prompt, run **`annulus traces last`** and confirm span names, iteration count, and retrieval hits. Use **`annulus traces list`** to browse older runs (not required for the first prompt in a new Continue chat).
 
-**Traces:** v0.3 shows a **flat timeline** (not nested parents yet). Trace id matches HTTP header `X-Annulus-Trace-Id` but is not shown in the chat UI — use `traces last` after Continue sessions.
+**Traces:** v0.3 shows a **flat timeline** (not nested parents yet). Trace id matches HTTP header `X-Annulus-Trace-Id` but is not shown in the chat UI — use `traces last` after Continue sessions. Continue also sends a background **chat-title** request after the first assistant reply in a new session; Annulus passthroughs it (no retrieval or tools). `traces last` skips those title traces and shows your eval prompt instead.
 
 ### Indexing (day to day)
 
