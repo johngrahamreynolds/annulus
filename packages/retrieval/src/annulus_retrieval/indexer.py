@@ -63,12 +63,17 @@ class Indexer:
         removed = 0
         updated_files = 0
         indexed_chunks = 0
+        skipped = 0
+        indexed_paths = {path: mtime for path, mtime in self.store.list_files()}
 
         for rel in delta.deleted:
             if self._remove_path(rel):
                 removed += 1
 
         for rel in delta.added_or_modified:
+            if self._should_skip_git_reindex(rel, indexed_paths):
+                skipped += 1
+                continue
             outcome = self._index_relative(rel)
             if outcome is None:
                 continue
@@ -82,6 +87,7 @@ class Indexer:
             "files": updated_files,
             "chunks": indexed_chunks,
             "removed": removed,
+            "skipped": skipped,
             "strategy": "git",
             "head_commit": delta.head_commit,
         }
@@ -132,6 +138,15 @@ class Indexer:
         if not file_path.is_file() or not self._should_index(file_path):
             return None
         return self._index_path(rel, file_path)
+
+    def _should_skip_git_reindex(self, rel: str, indexed_paths: dict[str, float]) -> bool:
+        stored_mtime = indexed_paths.get(rel)
+        if stored_mtime is None:
+            return False
+        file_path = self.root / rel
+        if not file_path.is_file() or not self._should_index(file_path):
+            return False
+        return file_path.stat().st_mtime == stored_mtime
 
     def _index_path(self, rel: str, file_path: Path) -> int | None:
         mtime = file_path.stat().st_mtime
