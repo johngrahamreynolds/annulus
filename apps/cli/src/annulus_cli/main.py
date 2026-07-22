@@ -92,6 +92,8 @@ def index_workspace(
         )
         if removed := stats.get("removed"):
             typer.echo(f"Removed {removed} deleted files from index")
+        if skipped := stats.get("skipped"):
+            typer.echo(f"Skipped {skipped} unchanged files")
         typer.echo(f"Index DB: {settings.resolve_index_db()}")
 
 

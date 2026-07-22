@@ -59,6 +59,45 @@ def test_index_incremental_git_updates_and_removes(tmp_path):
     assert retriever.search("hi")
 
 
+def test_index_incremental_git_skips_unchanged_dirty_files(tmp_path):
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    _git(workspace, "init")
+    _git(workspace, "config", "user.email", "test@example.com")
+    _git(workspace, "config", "user.name", "Test")
+
+    (workspace / "hello.py").write_text("def annulus_greeting():\n    return 'hello'\n")
+    _git(workspace, "add", "hello.py")
+    _git(workspace, "commit", "-m", "init")
+
+    settings = load_settings()
+    settings.annulus_workspace_root = workspace
+    settings.annulus_data_dir = tmp_path / ".annulus"
+    settings.annulus_index_db = tmp_path / ".annulus" / "index.db"
+
+    indexer = Indexer(settings)
+    indexer.index_all(rebuild=True)
+
+    (workspace / "hello.py").write_text("def annulus_greeting():\n    return 'dirty'\n")
+    (workspace / "other.py").write_text("value = 1\n")
+
+    first = indexer.index_incremental()
+    assert first["strategy"] == "git"
+    assert first["files"] == 2
+    assert first.get("skipped", 0) == 0
+
+    second = indexer.index_incremental()
+    assert second["strategy"] == "git"
+    assert second["files"] == 0
+    assert second["chunks"] == 0
+    assert second.get("skipped", 0) == 2
+
+    (workspace / "other.py").write_text("value = 2\n")
+    third = indexer.index_incremental()
+    assert third["files"] == 1
+    assert third.get("skipped", 0) == 1
+
+
 def test_index_incremental_mtime_updates_and_removes(tmp_path):
     workspace = tmp_path / "repo"
     workspace.mkdir()

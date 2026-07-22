@@ -17,7 +17,8 @@ def run_watch(*, interval_seconds: float, once: bool = False) -> None:
         print(
             f"Index {stats.get('mode', 'incremental')}: "
             f"{stats.get('files', 0)} files, {stats.get('chunks', 0)} chunks, "
-            f"{stats.get('removed', 0)} removed ({stats.get('strategy', '?')}) "
+            f"{stats.get('removed', 0)} removed, {stats.get('skipped', 0)} skipped "
+            f"({stats.get('strategy', '?')}) "
             f"in {elapsed:.2f}s -> {settings.resolve_index_db()}"
         )
         if once:
