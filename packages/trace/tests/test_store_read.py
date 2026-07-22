@@ -104,6 +104,20 @@ def test_latest_trace_id(tmp_path: Path) -> None:
     assert store.latest_trace_id() == second_root.trace_id
 
 
+def test_latest_trace_id_skips_continue_title_passthrough(tmp_path: Path) -> None:
+    db_path = tmp_path / "traces.db"
+    store = TraceStore(db_path)
+    agent_trace = _seed_chat_trace(store)
+
+    title_root = store.start_span(
+        "chat.completions",
+        attributes={"passthrough_reason": "continue_title", "message_count": 1},
+    )
+    store.end_span(title_root.span_id)
+
+    assert store.latest_trace_id() == agent_trace
+
+
 def test_list_traces_marks_error_status(tmp_path: Path) -> None:
     db_path = tmp_path / "traces.db"
     store = TraceStore(db_path)

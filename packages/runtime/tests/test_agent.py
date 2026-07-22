@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import json
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from annulus_core.config import AnnulusSettings, ModelProfile
-from annulus_runtime.agent import AgentRuntime, _prepend_system_context
+from annulus_runtime.agent import (
+    CONTINUE_TITLE_PROMPT_PREFIX,
+    AgentRuntime,
+    _prepend_system_context,
+    is_continue_title_request,
+)
 from annulus_runtime.streaming import (
     assemble_stream_message,
     assistant_visible_text,
@@ -15,6 +19,112 @@ from annulus_runtime.streaming import (
     stream_completion_content,
     to_cli_stream_chunk,
 )
+
+
+def test_is_continue_title_request():
+    title_message = {
+        "role": "user",
+        "content": CONTINUE_TITLE_PROMPT_PREFIX + "AgentRuntime tool loop summary.",
+    }
+    assert is_continue_title_request([title_message]) is True
+    assert is_continue_title_request([{"role": "user", "content": "Use ripgrep"}]) is False
+    assert is_continue_title_request(
+        [
+            {"role": "user", "content": "Hi"},
+            {"role": "assistant", "content": "Hello"},
+        ]
+    ) is False
+
+
+@pytest.mark.asyncio
+async def test_run_passthrough_continue_title_skips_retrieval_and_tools():
+    settings = _settings()
+    settings.agent.retrieval_enabled = True
+    router = MagicMock()
+    router.resolve_profile.return_value = ("local", settings.models.profiles["local"])
+    router.build_payload.side_effect = lambda **kwargs: kwargs
+    router.complete = AsyncMock(
+        return_value=MagicMock(
+            profile_name="local",
+            profile=settings.models.profiles["local"],
+            escalated=False,
+            data={
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Ripgrep Tool Search"}},
+                ],
+            },
+        )
+    )
+
+    retriever = MagicMock()
+    tools = MagicMock()
+    trace_store = MagicMock()
+
+    runtime = AgentRuntime(
+        settings=settings,
+        router=router,
+        retriever=retriever,
+        tools=tools,
+        trace_store=trace_store,
+    )
+
+    result = await runtime.run(
+        messages=[
+            {
+                "role": "user",
+                "content": CONTINUE_TITLE_PROMPT_PREFIX + "Found AgentRuntime via ripgrep.",
+            }
+        ],
+    )
+
+    assert result.message["content"] == "Ripgrep Tool Search"
+    assert result.tool_calls == []
+    assert result.retrieval_hits == []
+    retriever.search.assert_not_called()
+    tools.execute.assert_not_called()
+    trace_store.start_span.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_stream_run_passthrough_continue_title():
+    settings = _settings()
+    settings.agent.retrieval_enabled = True
+    router = MagicMock()
+    router.resolve_profile.return_value = ("local", settings.models.profiles["local"])
+    router.build_payload.side_effect = lambda **kwargs: kwargs
+
+    async def fake_stream(*args, **kwargs):
+        yield b"data: {\"choices\":[{\"delta\":{\"content\":\"Ripgrep Tool Search\"}}]}\n\n"
+        yield b"data: [DONE]\n\n"
+
+    router.stream = fake_stream
+
+    retriever = MagicMock()
+    trace_store = MagicMock()
+    runtime = AgentRuntime(
+        settings=settings,
+        router=router,
+        retriever=retriever,
+        tools=MagicMock(),
+        trace_store=trace_store,
+    )
+
+    raw = [
+        chunk
+        async for chunk in runtime.stream_run(
+            messages=[
+                {
+                    "role": "user",
+                    "content": CONTINUE_TITLE_PROMPT_PREFIX + "Found AgentRuntime via ripgrep.",
+                }
+            ],
+        )
+    ]
+
+    assert b"Ripgrep Tool Search" in b"".join(raw)
+    assert not any(b'"status": "tool"' in chunk for chunk in raw)
+    retriever.search.assert_not_called()
+    trace_store.start_span.assert_not_called()
 
 
 def test_prepend_system_context_returns_flat_message_list():
