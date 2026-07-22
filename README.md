@@ -168,7 +168,7 @@ Agent runs are recorded in `.annulus/traces.db` (spans for chat, retrieval, tool
 | `annulus traces show <trace_id>` | Spans for one run (from `list` or API header) |
 | `annulus traces last` | Most recent run — default after `annulus chat` or Continue |
 
-After a chat, **`annulus traces last`** is usually enough. Use **`traces list`** then **`traces show <id>`** for an older run.
+After a chat, **`annulus traces last`** is usually enough. Use **`traces list`** then **`traces show <id>`** for an older run. Continue’s auto chat-title requests are passthrough-only; **`traces last` skips them** so the most recent agent run (retrieval/tools) is shown.
 
 **v0.3 display:** `traces show` renders spans as a **flat timeline** (chronological list: `chat.completions`, `retrieval.search`, `agent.iteration`, `tool.*`). Nested indentation under parent spans is planned for a later release once the runtime wires `parent_span_id`.
 

@@ -8,6 +8,10 @@ from typing import Any
 from annulus_core.config import AnnulusSettings, ModelProfile
 from annulus_retrieval.retriever import Retriever
 from annulus_router.router import ModelRouter
+from annulus_tools.executor import ToolExecutor
+from annulus_tools.registry import tool_schemas
+from annulus_trace.store import TraceStore
+
 from annulus_runtime.streaming import (
     assemble_stream_message,
     assistant_visible_text,
@@ -18,9 +22,26 @@ from annulus_runtime.streaming import (
     stream_completion_content,
     stream_status_event,
 )
-from annulus_tools.executor import ToolExecutor
-from annulus_tools.registry import tool_schemas
-from annulus_trace.store import TraceStore
+
+# Continue ChatDescriber title generation (core/util/chatDescriber.ts).
+CONTINUE_TITLE_PROMPT_PREFIX = (
+    "Given the following... please reply with a title for the chat that is 3-4 words "
+    "in length, all words used should be directly related to the content of the chat, "
+    "avoid using verbs unless they are directly related to the content of the chat, "
+    "no additional text or explanation, you don't need ending punctuation.\n\n"
+)
+
+
+def is_continue_title_request(messages: list[dict[str, Any]]) -> bool:
+    if len(messages) != 1:
+        return False
+    message = messages[0]
+    if message.get("role") != "user":
+        return False
+    content = message.get("content")
+    if not content:
+        return False
+    return str(content).startswith(CONTINUE_TITLE_PROMPT_PREFIX)
 
 
 @dataclass
@@ -70,6 +91,14 @@ class AgentRuntime:
             raise ValueError("Use stream_run() for streaming requests")
 
         profile_key, profile = self.router.resolve_profile(profile_name)
+        if is_continue_title_request(messages):
+            return await self._complete_passthrough(
+                messages=messages,
+                profile_key=profile_key,
+                profile=profile,
+                extra=extra,
+            )
+
         tools_enabled = self.settings.agent.tools_enabled and profile.supports_tools
         working, retrieval_hits = self._prepare_messages(
             messages,
@@ -97,6 +126,15 @@ class AgentRuntime:
         extra: dict[str, Any] | None = None,
     ) -> AsyncIterator[bytes]:
         profile_key, profile = self.router.resolve_profile(profile_name)
+        if is_continue_title_request(messages):
+            async for chunk in self._stream_passthrough(
+                messages=messages,
+                profile=profile,
+                extra=extra,
+            ):
+                yield chunk
+            return
+
         tools_enabled = self.settings.agent.tools_enabled and profile.supports_tools
         working, retrieval_hits = self._prepare_messages(
             messages,
@@ -107,15 +145,10 @@ class AgentRuntime:
         summary = StreamRunSummary(profile_name=profile_key, retrieval_hits=retrieval_hits)
 
         if not tools_enabled:
-            payload = self.router.build_payload(
-                profile=profile,
+            async for chunk in self._stream_passthrough(
                 messages=working,
-                stream=True,
+                profile=profile,
                 extra=extra,
-            )
-            async for chunk in normalize_sse_stream(
-                self.router.stream(profile=profile, payload=payload),
-                expose_reasoning=profile.expose_reasoning,
             ):
                 yield chunk
             summary.iterations = 1
@@ -282,6 +315,54 @@ class AgentRuntime:
                     ]
 
         return working, retrieval_hits
+
+    async def _complete_passthrough(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        profile_key: str,
+        profile: ModelProfile,
+        extra: dict[str, Any] | None,
+    ) -> AgentRunResult:
+        working = [dict(m) for m in messages]
+        payload = self.router.build_payload(
+            profile=profile,
+            messages=working,
+            stream=False,
+            extra=extra,
+        )
+        result = await self.router.complete(
+            profile_name=profile_key,
+            profile=profile,
+            payload=payload,
+        )
+        message = result.data["choices"][0]["message"]
+        return AgentRunResult(
+            message=message,
+            profile_name=result.profile_name,
+            escalated=result.escalated,
+            iterations=1,
+        )
+
+    async def _stream_passthrough(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        profile: ModelProfile,
+        extra: dict[str, Any] | None,
+    ) -> AsyncIterator[bytes]:
+        working = [dict(m) for m in messages]
+        payload = self.router.build_payload(
+            profile=profile,
+            messages=working,
+            stream=True,
+            extra=extra,
+        )
+        async for chunk in normalize_sse_stream(
+            self.router.stream(profile=profile, payload=payload),
+            expose_reasoning=profile.expose_reasoning,
+        ):
+            yield chunk
 
     async def _run_tool_loop(
         self,

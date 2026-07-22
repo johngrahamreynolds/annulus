@@ -231,8 +231,11 @@ class TraceStore:
             return summaries
 
     def latest_trace_id(self) -> str | None:
-        summaries = self.list_traces(limit=1)
-        return summaries[0].trace_id if summaries else None
+        for summary in self.list_traces(limit=20):
+            if summary.attributes.get("passthrough_reason") == "continue_title":
+                continue
+            return summary.trace_id
+        return None
 
     def get_spans(self, trace_id: str) -> list[TraceRecord]:
         with self._connect() as conn:

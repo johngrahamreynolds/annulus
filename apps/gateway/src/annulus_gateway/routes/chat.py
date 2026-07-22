@@ -5,6 +5,7 @@ import time
 import uuid
 from typing import Any
 
+from annulus_runtime.agent import is_continue_title_request
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -55,6 +56,11 @@ async def chat_completions(
             "profile": requested_model or settings.router.default_profile,
             "stream": stream,
             "message_count": len(messages),
+            **(
+                {"passthrough_reason": "continue_title"}
+                if is_continue_title_request(messages)
+                else {}
+            ),
         },
     )
 
