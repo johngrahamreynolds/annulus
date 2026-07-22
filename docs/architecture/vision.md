@@ -69,6 +69,7 @@ An **agentic engineering and research platform**: grounded in the user's repos, 
 | [013](adr-013-model-tool-compatibility.md) | Model tool compatibility matrix |
 | [014](adr-014-incremental-index-watch.md) | Git-aware incremental index watch |
 | [015](adr-015-local-swe-assistant-v04.md) | Local SWE assistant (v0.4 edit + hybrid retrieval) |
+| [016](adr-016-typescript-client-layer.md) | TypeScript client-layer strategy |
 
 ## Architecture reviews
 
