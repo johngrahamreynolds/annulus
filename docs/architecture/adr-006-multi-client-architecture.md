@@ -56,5 +56,6 @@ Treat all user-facing surfaces as **clients of the Annulus engine**:
 - [vision.md](vision.md)
 - [adr-003-openai-compatible-gateway.md](adr-003-openai-compatible-gateway.md)
 - [adr-004-retrieval-tools-agent-loop.md](adr-004-retrieval-tools-agent-loop.md)
+- [adr-016-typescript-client-layer.md](adr-016-typescript-client-layer.md) — client-layer language and `clients/` layout (engine stays Python)
 - `apps/gateway/`
 - `docs/continue-config.example.yaml`
