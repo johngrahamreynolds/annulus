@@ -20,6 +20,7 @@ models:
     apiKey: dev-local-key
     roles:
       - chat
+    # maps to gemma4:26b — ollama pull gemma4:26b; see eval runbook model tier table
 
   - name: Annulus GPT-OSS
     provider: openai
@@ -46,6 +47,7 @@ models:
 # Use CLI --no-stream to print annulus metadata (iterations, tool_calls, escalation) inline.
 #
 # Continue: disable built-in tools (Tool Policies) so Annulus runs server-side tools.
+# See .devcontainer/eval/README.md (Continue setup) and ADR-013 open questions.
 # Continue may inject text saying tools are unavailable; Annulus appends <annulus_tools>
 # to the system message to override that. Do not add custom rules denying tool use.
 # Frontier: configure OPENAI_API_KEY and OPENAI_BASE_URL in .env (LiteLLM ZDR, OpenAI, etc.).
