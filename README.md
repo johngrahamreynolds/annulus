@@ -119,6 +119,14 @@ uv run annulus index watch       # optional: keep index fresh while you edit
 
 Run the gateway as a process inside `dev`; port 8080 is forwarded to the host for Continue and `annulus health`. Images include `ripgrep` for the agent `ripgrep` tool.
 
+## Evaluating an external repo (v0.3)
+
+Dogfood Annulus against a **target repo** (not the Annulus monorepo itself) using the eval devcontainer:
+
+1. Set `ANNULUS_EVAL_REPO` in `.devcontainer/eval/.env` and reopen **Annulus — External Repo Eval**.
+2. Follow the **[v0.3 eval runbook](.devcontainer/eval/README.md#v0.3-eval-runbook)** — checklist, sample prompts, Continue setup, and `annulus traces last` after tool runs.
+3. Configure Continue from [`docs/continue-config.example.yaml`](docs/continue-config.example.yaml). Default profile **`local`** (`gemma4:12b`); use **`local-large`** (`gemma4:26b`) when your machine can run the larger Ollama model — see [ADR-013](docs/architecture/adr-013-model-tool-compatibility.md).
+
 ## Development
 
 ```bash
