@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from annulus_core import __version__ as annulus_version
 from annulus_core.config import load_settings
 from annulus_retrieval.indexer import Indexer
 from fastapi import FastAPI
@@ -43,7 +44,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Annulus Gateway",
         description="OpenAI-compatible gateway with retrieval and tools",
-        version="0.2.0",
+        version=annulus_version,
         lifespan=lifespan,
     )
     app.include_router(health_router)

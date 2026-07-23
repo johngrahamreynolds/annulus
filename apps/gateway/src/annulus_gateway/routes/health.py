@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from annulus_core import __version__ as annulus_version
 from fastapi import APIRouter, Depends
 
 from annulus_gateway.deps import get_retriever, get_router, get_settings, verify_api_key
@@ -20,7 +21,7 @@ async def health(
     return {
         "status": "ok",
         "service": "annulus-gateway",
-        "version": "0.2.0",
+        "version": annulus_version,
         "trace_enabled": settings.trace.enabled,
         "retrieval_enabled": settings.agent.retrieval_enabled,
         "tools_enabled": settings.agent.tools_enabled,
