@@ -43,7 +43,7 @@ An **agentic engineering and research platform**: grounded in the user's repos, 
 | Phase | Focus | Primary client |
 |-------|--------|----------------|
 | **v0.2** ✅ | FTS5 retrieval, tool loop, tracing, frontier escalation, eval devcontainer | Continue / CLI |
-| **v0.3** | Close out: **git-aware index watch**, **trace CLI**, **git tools**, eval runbook, **0.3.0** tag. Shipped: streaming tool loop, Gemma profiles (ADR-013), Continue tool prompt, reasoning Thought UI, Windows eval | Continue / CLI |
+| **v0.3** ✅ | **git-aware index watch**, **trace CLI**, **git tools**, eval runbook, **0.3.0** tag. Shipped: streaming tool loop, Gemma profiles (ADR-013), Continue tool prompt, reasoning Thought UI, Windows eval, ChatDescriber passthrough | Continue / CLI |
 | **v0.4** | **Local SWE assistant** ([ADR-015](adr-015-local-swe-assistant-v04.md)): hybrid FTS + embeddings (ADR-009), incremental re-embed, **propose_edit** + Continue edit/apply, team runbook | Continue / CLI |
 | **v0.5** | GraphRAG-lite (symbols, edges, multi-hop expand) | CLI + trace inspection |
 | **v0.6** | MCP tools, remote compute profiles (lab GPU / vLLM) | Clients unchanged |

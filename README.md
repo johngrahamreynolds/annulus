@@ -2,13 +2,14 @@
 
 Local-first, model-agnostic agentic AI platform. The gateway exposes an OpenAI-compatible API with **retrieval-augmented** chat, a **server-side tool loop** (`read_file`, `ripgrep`, `git_status`, `git_diff`), SQLite tracing, and **frontier escalation** when local models fail.
 
-## Features (v0.2)
+## Features (v0.3)
 
-- **Retrieval** — FTS5 index over workspace code/docs (`annulus index`)
-- **Agent loop** — server-side tool calling before responding
-- **Tracing** — SQLite spans for chat, retrieval, tools, and iterations
+- **Retrieval** — FTS5 index over workspace code/docs; git-aware incremental indexing and `annulus index watch` ([ADR-014](docs/architecture/adr-014-incremental-index-watch.md))
+- **Agent loop** — streaming server-side tool calling (`read_file`, `ripgrep`, `git_status`, `git_diff`)
+- **Tracing** — SQLite spans + **`annulus traces list/show/last`** CLI
+- **Continue integration** — Gemma4 profiles ([ADR-013](docs/architecture/adr-013-model-tool-compatibility.md)), reasoning Thought UI, server-side tool prompt, ChatDescriber title passthrough
 - **Frontier escalation** — optional fallback to an OpenAI-compatible frontier API when local model errors or returns empty
-- **Continue-ready** — OpenAI-compatible `/v1/chat/completions`
+- **Eval runbook** — [v0.3 contributor checklist](.devcontainer/eval/README.md#v0.3-eval-runbook) for external-repo dogfooding
 
 ## Repo layout
 
@@ -134,6 +135,8 @@ uv sync --group dev
 uv run ruff check .
 uv run pytest
 ```
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## Indexing
 

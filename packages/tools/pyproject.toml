@@ -1,6 +1,6 @@
 [project]
 name = "annulus-tools"
-version = "0.2.0"
+version = "0.3.0"
 description = "Annulus built-in tools for agent loop"
 requires-python = ">=3.12"
 dependencies = ["annulus-core"]

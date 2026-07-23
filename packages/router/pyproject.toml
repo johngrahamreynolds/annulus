@@ -1,6 +1,6 @@
 [project]
 name = "annulus-router"
-version = "0.2.0"
+version = "0.3.0"
 description = "Annulus model router — Ollama and frontier providers"
 requires-python = ">=3.12"
 dependencies = [

@@ -35,7 +35,7 @@ wheels = [
 
 [[package]]
 name = "annulus"
-version = "0.2.0"
+version = "0.3.0"
 source = { virtual = "." }
 dependencies = [
     { name = "annulus-cli" },
@@ -66,7 +66,7 @@ dev = [
 
 [[package]]
 name = "annulus-cli"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "apps/cli" }
 dependencies = [
     { name = "annulus-core" },
@@ -87,7 +87,7 @@ requires-dist = [
 
 [[package]]
 name = "annulus-core"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/core" }
 dependencies = [
     { name = "pydantic" },
@@ -104,7 +104,7 @@ requires-dist = [
 
 [[package]]
 name = "annulus-gateway"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "apps/gateway" }
 dependencies = [
     { name = "annulus-core" },
@@ -131,7 +131,7 @@ requires-dist = [
 
 [[package]]
 name = "annulus-retrieval"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/retrieval" }
 dependencies = [
     { name = "annulus-core" },
@@ -142,7 +142,7 @@ requires-dist = [{ name = "annulus-core", editable = "packages/core" }]
 
 [[package]]
 name = "annulus-router"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/router" }
 dependencies = [
     { name = "annulus-core" },
@@ -157,7 +157,7 @@ requires-dist = [
 
 [[package]]
 name = "annulus-runtime"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/runtime" }
 dependencies = [
     { name = "annulus-core" },
@@ -178,7 +178,7 @@ requires-dist = [
 
 [[package]]
 name = "annulus-tools"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/tools" }
 dependencies = [
     { name = "annulus-core" },
@@ -189,7 +189,7 @@ requires-dist = [{ name = "annulus-core", editable = "packages/core" }]
 
 [[package]]
 name = "annulus-trace"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/trace" }
 dependencies = [
     { name = "annulus-core" },
