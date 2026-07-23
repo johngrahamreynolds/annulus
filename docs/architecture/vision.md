@@ -44,7 +44,7 @@ An **agentic engineering and research platform**: grounded in the user's repos, 
 |-------|--------|----------------|
 | **v0.2** ✅ | FTS5 retrieval, tool loop, tracing, frontier escalation, eval devcontainer | Continue / CLI |
 | **v0.3** ✅ | **git-aware index watch**, **trace CLI**, **git tools**, eval runbook, **0.3.0** tag. Shipped: streaming tool loop, Gemma profiles (ADR-013), Continue tool prompt, reasoning Thought UI, Windows eval, ChatDescriber passthrough | Continue / CLI |
-| **v0.4** | **Local SWE assistant** ([ADR-015](adr-015-local-swe-assistant-v04.md)): hybrid FTS + embeddings (ADR-009), incremental re-embed, **propose_edit** + Continue edit/apply, team runbook | Continue / CLI |
+| **v0.4** | **Local SWE assistant** ([ADR-015](adr-015-local-swe-assistant-v04.md)): hybrid FTS + embeddings (ADR-009), incremental re-embed, **propose_edit** + Continue edit/apply, team runbook. `propose_edit`'s apply mode is gated by [ADR-019](adr-019-permission-capability-model.md)/[ADR-021](adr-021-plan-before-act-protocol.md) | Continue / CLI |
 | **v0.5** | GraphRAG-lite (symbols, edges, multi-hop expand) | CLI + trace inspection |
 | **v0.6** | MCP tools, remote compute profiles (lab GPU / vLLM) | Clients unchanged |
 | **v0.7** | Orchestrator + worker agent swarms | IDE optional |
@@ -52,24 +52,34 @@ An **agentic engineering and research platform**: grounded in the user's repos, 
 
 ## Related ADRs
 
-| ADR | Topic |
-|-----|--------|
-| [001](adr-001-monorepo-uv.md) | Monorepo and uv workspace |
-| [002](adr-002-host-ollama-docker-apps.md) | Host Ollama, Docker/devcontainer |
-| [003](adr-003-openai-compatible-gateway.md) | OpenAI-compatible gateway |
-| [004](adr-004-retrieval-tools-agent-loop.md) | Retrieval, tools, agent loop |
-| [005](adr-005-frontier-escalation.md) | Frontier escalation |
-| [006](adr-006-multi-client-architecture.md) | Multi-client / UI direction |
-| [007](adr-007-remote-compute-profiles.md) | Remote and lab GPU inference |
-| [008](adr-008-agent-swarm-orchestration.md) | Swarm orchestration |
-| [009](adr-009-hybrid-retrieval-embeddings.md) | Hybrid FTS + embeddings |
-| [010](adr-010-graphrag-lite.md) | GraphRAG-lite |
-| [011](adr-011-governed-self-improvement.md) | Governed self-improvement (open-ended) |
-| [012](adr-012-target-native-sidecar-deployment.md) | Target-native sidecar / end-user deployment |
-| [013](adr-013-model-tool-compatibility.md) | Model tool compatibility matrix |
-| [014](adr-014-incremental-index-watch.md) | Git-aware incremental index watch |
-| [015](adr-015-local-swe-assistant-v04.md) | Local SWE assistant (v0.4 edit + hybrid retrieval) |
-| [016](adr-016-typescript-client-layer.md) | TypeScript client-layer strategy |
+See [`adr-template.md`](adr-template.md) for the section structure new ADRs follow.
+
+| ADR | Topic | Status |
+|-----|--------|--------|
+| [001](adr-001-monorepo-uv.md) | Monorepo and uv workspace | Accepted |
+| [002](adr-002-host-ollama-docker-apps.md) | Host Ollama, Docker/devcontainer | Accepted |
+| [003](adr-003-openai-compatible-gateway.md) | OpenAI-compatible gateway | Accepted |
+| [004](adr-004-retrieval-tools-agent-loop.md) | Retrieval, tools, agent loop | Accepted |
+| [005](adr-005-frontier-escalation.md) | Frontier escalation | Accepted |
+| [006](adr-006-multi-client-architecture.md) | Multi-client / UI direction | Proposed |
+| [007](adr-007-remote-compute-profiles.md) | Remote and lab GPU inference | Proposed |
+| [008](adr-008-agent-swarm-orchestration.md) | Swarm orchestration | Proposed |
+| [009](adr-009-hybrid-retrieval-embeddings.md) | Hybrid FTS + embeddings | Proposed |
+| [010](adr-010-graphrag-lite.md) | GraphRAG-lite | Proposed |
+| [011](adr-011-governed-self-improvement.md) | Governed self-improvement (open-ended) | Proposed |
+| [012](adr-012-target-native-sidecar-deployment.md) | Target-native sidecar / end-user deployment | Proposed |
+| [013](adr-013-model-tool-compatibility.md) | Model tool compatibility matrix | Proposed |
+| [014](adr-014-incremental-index-watch.md) | Git-aware incremental index watch | Accepted |
+| [015](adr-015-local-swe-assistant-v04.md) | Local SWE assistant (v0.4 edit + hybrid retrieval) | Proposed |
+| [016](adr-016-typescript-client-layer.md) | TypeScript client-layer strategy | Proposed |
+| [017](adr-017-skill-primitive.md) | Skill primitive (Tool↔Skill↔Agent boundary) | Proposed |
+| [018](adr-018-agent-identity-configuration.md) | Agent identity & configuration | Proposed |
+| [019](adr-019-permission-capability-model.md) | Permission & capability authorization model | Proposed |
+| [020](adr-020-data-egress-compliance-policy.md) | Data-egress & compliance policy (ITAR/ZDR) | Proposed |
+| [021](adr-021-plan-before-act-protocol.md) | Plan-before-act interaction protocol | Proposed |
+| [022](adr-022-per-project-agent-policy.md) | Per-project / per-agent policy (`.annulus/config.yaml`) | Proposed |
+| [023](adr-023-provenance-evaluation-data-model.md) | Provenance & evaluation data model | Proposed |
+| [024](adr-024-scientific-workload-primitives.md) | Scientific workload primitives | Proposed |
 
 ## Architecture reviews
 
@@ -90,3 +100,7 @@ Point-in-time gap analyses vs this vision (historical snapshots, not live status
 | Model cites "supplied context" awkwardly | System prompt / injection format tuning |
 | Model emits tool JSON in content, not `tool_calls` | [ADR-013](adr-013-model-tool-compatibility.md) — probe, profile flags, optional fallback |
 | Full reindex too slow on large repos | [ADR-014](adr-014-incremental-index-watch.md) — git-aware incremental watch |
+| Agent executes a risky/irreversible action with no chance to review | [ADR-021](adr-021-plan-before-act-protocol.md) — plan-before-act |
+| Workspace content reaches a frontier API with no policy check | [ADR-020](adr-020-data-egress-compliance-policy.md) — egress policy |
+| Same domain workflow re-implemented by hand every time | [ADR-017](adr-017-skill-primitive.md) — skill primitive |
+| Trace tree is flat; can't see multi-agent nesting | [ADR-023](adr-023-provenance-evaluation-data-model.md) — `parent_span_id` wiring (#40) |
