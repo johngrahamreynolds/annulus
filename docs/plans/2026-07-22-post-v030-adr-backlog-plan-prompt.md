@@ -115,6 +115,6 @@ After the human executes your approved plan, a contributor can read ADRs 017–0
 
 ```text
 /plan
-Read docs/plans/adr-backlog-plan-prompt.md and execute that task.
+Read docs/plans/2026-07-22-post-v030-adr-backlog-plan-prompt.md and execute that task.
 Do not implement runtime code unless I approve the plan.
 ```
